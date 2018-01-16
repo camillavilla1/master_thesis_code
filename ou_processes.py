@@ -5,7 +5,7 @@ import time
 import logging
 
 
-class newProcess():
+class ObservationUnit():
 	def __init__(self):
 		pass
 
@@ -35,10 +35,10 @@ class newProcess():
 
 
 if __name__ == '__main__':
-	num_proc = 4
-	nProcess = newProcess()
+	num_proc = 10
+	nProcess = ObservationUnit()
 	nProcess.info()
 	nProcess.run(num_proc)
 
-	time.sleep(7)
+	#time.sleep(20)
 	#print("Exiting!")
