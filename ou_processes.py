@@ -42,22 +42,26 @@ class ObservationUnit():
 		pass
 
 	def weather_sensor(self):
-		pass
+		list_of_weather = ['sun', 'rain', 'cloudy', 'windy', 'stormy']
+
+		random_weather = random.choice(list_of_weather)
+		print("Random weather is: %s" % random_weather)
 
 	def temperature_sensor(self):
 		#pass
 		proc_name = mp.current_process().name
-		print("Doing something in %s." % proc_name)
+		print("Making random temp in %s." % proc_name)
 		rand_temp = random.randrange(1,20)
 		print(rand_temp)
 
 
 
 if __name__ == '__main__':
-	num_proc = 4
+	num_proc = 10
 	nProcess = ObservationUnit()
 	#nProcess.info()
 	#nProcess.temperature_sensor()
+	#nProcess.weather_sensor()
 	nProcess.run(num_proc)
 
 	#time.sleep(20)
