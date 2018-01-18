@@ -10,7 +10,7 @@ class ObservationUnit(mp.Process):
 		#self.logging()
 		self.temperature_sensor()
 		self.weather_sensor()
-
+		self.camera_sensor()
 		print("\n")
 
 
