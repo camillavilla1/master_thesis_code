@@ -6,7 +6,7 @@ def Main():
 
 	mySocket = socket.socket()
 	mySocket.bind((host, port))
-
+	print("Listening to connection...")
 	mySocket.listen(1)
 	conn, addr = mySocket.accept()
 	print("Connection from: " + str(addr))
