@@ -17,5 +17,5 @@ print("Run subprocess")
 process = subprocess.Popen(['python3', 'super_ou.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 output = process.communicate()
-print(output)
+print("Output: ", output)
 print("Exiting")

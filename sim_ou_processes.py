@@ -3,6 +3,7 @@ import random
 import os
 import logging
 import time
+import sys
 
 class ObservationUnit(mp.Process):
 	def run(self):
@@ -51,7 +52,8 @@ class ObservationUnit(mp.Process):
 
 
 if __name__ == '__main__':
-	NUMBER_OF_PROCESSES = 5
+	NUMBER_OF_PROCESSES = sys.argv[1]
+	NUMBER_OF_PROCESSES = int(NUMBER_OF_PROCESSES)
 	jobs = []
 	for i in range(NUMBER_OF_PROCESSES):
 		p = ObservationUnit()
