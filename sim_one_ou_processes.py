@@ -53,15 +53,10 @@ class ObservationUnit(mp.Process):
 
 
 if __name__ == '__main__':
-	NUMBER_OF_PROCESSES = sys.argv[1]
-	NUMBER_OF_PROCESSES = int(NUMBER_OF_PROCESSES)
-	jobs = []
-	for i in range(NUMBER_OF_PROCESSES):
-		p = ObservationUnit()
-		jobs.append(p)
-		p.start()
 
-	for j in jobs:
-		j.join()
+	p = ObservationUnit()
+	#jobs.append(p)
+	p.start()
+	p.join()
 
 
