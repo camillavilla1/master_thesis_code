@@ -3,6 +3,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
+
 #Create a TCP/IP socket
 try:
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
