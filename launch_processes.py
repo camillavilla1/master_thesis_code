@@ -68,7 +68,7 @@ if __name__ == '__main__':
 	while server is None:
 		try:
 			server = ThreadedHTTPServer((ip, port), Handler)
-			print("Server started on %s " %str(ip) + ':' + str(port))
+			print("Server started on %s" %str(ip) + ':' + str(port))
 		except Exception as e:
 			#raise e
 			print ("Caught exception socket.error: %s" % e)
@@ -87,11 +87,14 @@ if __name__ == '__main__':
 		print("We get signal (%s). Asking server to shut down" % signum)
 		server.shutdown()
 
+
+	# Start server in a new thread, because server HTTPServer.serve_forever()
+	# and HTTPServer.shutdown() must be called from separate threads
 	thread = threading.Thread(target=run_server)
 	thread.daemon = True
 	thread.start()
 
-
+	# Shut down on kill (SIGTERM) and Ctrl-C (SIGINT)
 	signal.signal(signal.SIGTERM, shutdown_server_on_signal)
 	signal.signal(signal.SIGINT, shutdown_server_on_signal)
 	
