@@ -7,6 +7,28 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
+global_node_list = []
+
+class Node():
+	"""docstring for Node"""
+	def __init__(self, ip, port):
+		self.ip = ip
+		self.port = port
+		self.server = None
+
+
+	def add_node(self, ip, port):
+		process = subprocess.Popen(['python3', 'launch_processes.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		output = process.communicate()
+		print(output[0])
+
+		proc_id = process.pid
+		print("Process ID is: ", process.pid)
+
+
+
+		
 
 class Handler(BaseHTTPRequestHandler):
 	pass
@@ -75,6 +97,8 @@ if __name__ == '__main__':
 			port += 1
 		
 
+	node = Node(ip, port)
+	node.add_node(ip, port)
 	#start_server()
 	#launch_processes()
 

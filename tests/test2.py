@@ -1,20 +1,19 @@
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from SocketServer import ThreadingMixIn
+from http.server  import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 import threading
 import time
 import re
 import argparse
-import httplib
+#import httplib
 import signal
 import socket
 import os
 import subprocess
 
 class Node(object):
-	self.server = None
-		
+	pass
 
-class Handler(BaseHTTPServer):
+class Handler(BaseHTTPRequestHandler):
 	pass
 		
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -38,7 +37,7 @@ def find_free_ip(first_node=False):
 
 
 if __name__ == '__main__':
-	new_ip = ""
+	new_ip = "localhost"
 	new_port = 8080
 
 	server = None
@@ -46,11 +45,10 @@ if __name__ == '__main__':
 	while server is None:
 		try:
 			server = ThreadedHTTPServer((new_ip, new_port), Handler)
-			print("Server started on %s " % str(new_ip) + '+ ' + str(new_port))
+			print("Server started on %s" % str(new_ip) + ':' + str(new_port))
 		except Exception as e:
 			new_port += 1
 			raise e
 
-	if creator:
-		node = Node()
-		node.server = server
+	
+	node = Node()
