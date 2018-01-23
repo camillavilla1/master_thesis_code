@@ -7,10 +7,9 @@ def run_subprocess(num_of_proc):
 	for i in range(num_of_proc):
 		#process = subprocess.run(['python3', 'sim_one_ou_processes.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-		process = subprocess.Popen(['python3', 'sim_one_ou_processes.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		process = subprocess.Popen(['python3', 'sim_one_ou_processes_2.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		output = process.communicate()
 		print(output)
-
 
 		proc_id = process.pid
 		print("Process ID is: ", process.pid)
