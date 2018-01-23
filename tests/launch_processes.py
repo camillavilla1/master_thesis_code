@@ -93,7 +93,7 @@ if __name__ == '__main__':
 			print("Server started on %s" %str(ip) + ':' + str(port))
 		except Exception as e:
 			#raise e
-			print ("Caught exception socket.error: %s" % e)
+			print("Caught exception socket.error: %s" % e)
 			port += 1
 		
 
