@@ -5,6 +5,7 @@ import(
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -19,11 +20,94 @@ func error_msg(s string, err error) {
 	}
 }
 
+func find_free_ip() {
+	
+}
+
+/*func spawn(port int) {
+	port += 1
+    fmt.Println(port)
+	
+	newPort := strconv.Itoa(port)
+	//fmt.Println(newPort)
+
+	address := "localhost:" + newPort
+
+	ln, err := net.Listen("tcp", address)
+	error_msg("Listen: ", err)
+	defer ln.Close()
+
+	hostname, err = os.Hostname()
+	error_msg("Hostname: ", err)
+
+
+    hostaddress = strings.Split(hostname, ".")[0]
+    fmt.Printf("Hostname is %s", hostname)
+    //Connection to port
+    conn, err := ln.Accept()
+    error_msg("Connection: ", err)
+    defer conn.Close()
+
+    //go handle(conn) to make it concurrent..
+    handle_conn(conn) //and then handler..
+
+    fmt.Printf("\nClosed connection!\n")
+
+
+}
 
 func main() {
-    fmt.Printf("Launching server...\n")
+	port := 8080
+	for i := 1; i < 3; i++ {
+		fmt.Printf("Spawing process\n")
+		go spawn(port)
+		fmt.Printf("Finished\n")
 
+	}
+}*/
+
+func main() {
+	fmt.Printf("Launching server...\n")
+    port := 8080
     //Listen on all interfaces
+    for i := 1; i < 3; i++ {
+    	port += 1
+    	fmt.Println(port)
+
+    	newPort := strconv.Itoa(port)
+    	//fmt.Println(newPort)
+
+    	address := "localhost:" + newPort
+
+    	ln, err := net.Listen("tcp", address)
+    	error_msg("Listen: ", err)
+    	defer ln.Close()
+
+    	hostname, err = os.Hostname()
+    	error_msg("Hostname: ", err)
+
+    
+	    hostaddress = strings.Split(hostname, ".")[0]
+	    fmt.Printf("Hostname is %s.\n", hostname)
+	    //Connection to port
+	    conn, err := ln.Accept()
+	    error_msg("Connection: ", err)
+	    defer conn.Close()
+
+	    //go handle(conn) to make it concurrent..
+	    handle_conn(conn) //and then handler..
+
+	    fmt.Printf("\nClosed connection!\n")
+
+
+    }
+}
+
+
+/*func main() {
+    fmt.Printf("Launching server...\n")
+    var port int = 8080
+
     ln, err := net.Listen("tcp", "localhost:8081")
     error_msg("Listen: ", err)
     defer ln.Close()
@@ -44,10 +128,10 @@ func main() {
     //conn.Close()
     //ln.Close()
     fmt.Printf("\nClosed connection!\n")
-}
+}*/
 
 func handle_conn(c net.Conn) {
-	fmt.Printf("Handle connection")
+	fmt.Printf("\nHandle connection")
 	//packet := new(Pack)
 	//w := make(chan *Pack, 100)
 	buf := make([]byte, 1024)
