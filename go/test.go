@@ -23,6 +23,35 @@ func error_msg(s string, err error) {
 func find_free_ip() {
 	
 }
+/*
+
+
+type Server struct {
+	ListenHost string
+	ListenPort string
+	Logger *log.Logger
+}
+
+func NewHTTPServer(listenIP, httpPort string) *Server {
+	res := Server{
+		ListenHost: listenIP
+		ListenPort: httpPort
+		Logger: log.New(os.Stdout, "server> ", log.Ltime.|log.Lshortfile)}
+
+	http.HandleFunc("/", res.HandleIndex)
+
+	reutnr &res
+}
+
+
+func (s *Server) HandleIndex(w http.ResponseWriter, r *http.Request) {
+	defer timeTrack(time.Now(), w, "HandeIndex")
+
+	s.httpHeaders(w)
+	io.WriteString(w, "hello, world")
+}
+
+*/
 
 /*func spawn(port int) {
 	port += 1
