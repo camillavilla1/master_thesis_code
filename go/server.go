@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
+	"sync"
 )
 
 
@@ -21,10 +22,9 @@ var hostaddress string
 
 var startedOuServer []string
 
+var wg sync.WaitGroup
+
 func main() {
-	
-	ret := setMaxProcs()
-	fmt.Println(ret)
 
 	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
 	addCommonFlags(runMode)
@@ -37,13 +37,32 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		runMode.Parse(os.Args[2:])
-		getLocalIp()
-		startServer()
+		wg.Add(1)
+		ret := setMaxProcs()
+		fmt.Println(ret)
+		go startServer()
+		wg.Wait()
 
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
 	}
 
+}
+
+func GetLocalIP() string {
+    addrs, err := net.InterfaceAddrs()
+    if err != nil {
+        return ""
+    }
+    for _, address := range addrs {
+        // check the address type and if it is not a loopback the display it
+        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+            if ipnet.IP.To4() != nil {
+                return ipnet.IP.String()
+            }
+        }
+    }
+    return ""
 }
 
 func addCommonFlags(flagset *flag.FlagSet) {
@@ -68,6 +87,15 @@ func startServer() {
 	startedOuServer = append(startedOuServer, hostaddress)
 	//fmt.Printf("%v\n", startedOuServer)
 
+	//getLocalIp()
+	ret_val := GetLocalIP()
+	fmt.Printf("Local IP is: %s\n", ret_val)
+	
+	pid := os.Getpid()
+	fmt.Println("Process id is:", pid)
+
+	pPid := os.Getppid()
+	fmt.Println("Parent process id is:", pPid)
 
 
 	err := http.ListenAndServe(ouPort, nil)
