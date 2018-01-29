@@ -11,11 +11,14 @@ import (
 	"io/ioutil"
 	"runtime"
 	"sync"
+	"strings"
 )
 
 
 var ouPort string
 var ouHost string
+
+var SOUPort string
 
 //var hostname string
 var hostaddress string
@@ -66,8 +69,9 @@ func GetLocalIP() string {
 }
 
 func addCommonFlags(flagset *flag.FlagSet) {
-	flagset.StringVar(&ouHost, "host", "localhost", "wormgate port (prefix with colon)")
-	flagset.StringVar(&ouPort, "port", ":0", "segment port (prefix with colon)")
+	flagset.StringVar(&SOUPort, "SOUport", ":0", "Super OU port (prefix with colon)")
+	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
+	flagset.StringVar(&ouPort, "port", ":0", "OU port (prefix with colon)")
 }
 
 
@@ -82,6 +86,7 @@ func startServer() {
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
+	//http.HandleFunc("/tellSOU", tellSuperObservationUnitHandler)
 
 	hostaddress = ouHost + ouPort
 	startedOuServer = append(startedOuServer, hostaddress)
@@ -97,11 +102,13 @@ func startServer() {
 	pPid := os.Getppid()
 	fmt.Println("Parent process id is:", pPid)
 
+	tellSuperObservationUnit()
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
 		log.Panic(err)
 	}
+
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +127,22 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide.")
 	os.Exit(0)
+}
+
+
+
+func tellSuperObservationUnit() {
+	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
+	fmt.Printf("Sending to url: %s", url)
+	
+	nodeString := ouHost + ouPort
+	fmt.Printf("\nWith the string: %s", nodeString)
+
+	addressBody := strings.NewReader(nodeString)
+	
+	_, err := http.Post(url, "string", addressBody)
+	errorMsg("Post address: ", err)
+	//fmt.Printf("Posted %s to %s", addressBody, url)
 }
 
 
