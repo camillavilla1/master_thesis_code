@@ -6,10 +6,10 @@ import (
 	"log"
 	"net"
 	"os"
-	//"runtime"
 	"net/http"
 	"io"
 	"io/ioutil"
+	"runtime"
 )
 
 
@@ -23,10 +23,9 @@ var startedOuServer []string
 
 func main() {
 	
-	//hostname, _ = os.Hostname()
-	//fmt.Printf(hostname)
+	ret := setMaxProcs()
+	fmt.Println(ret)
 
-	//hostAddress ) string.Split(hostname, ".")[0]
 	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
 	addCommonFlags(runMode)
 	//var runHost = runMode.String("host", "localhost", "Run host")
@@ -38,6 +37,7 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		runMode.Parse(os.Args[2:])
+		getLocalIp()
 		startServer()
 
 	default:
@@ -52,7 +52,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 }
 
 
-func error_msg(s string, err error) {
+func errorMsg(s string, err error) {
 	if err != nil {
 		log.Fatal(s, err)
 	}
@@ -69,19 +69,17 @@ func startServer() {
 	//fmt.Printf("%v\n", startedOuServer)
 
 
+
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
 		log.Panic(err)
 	}
-
-
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Don't use the request body. But we should consume it anyway.
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
-
 
 	fmt.Fprintf(w, "Index Handler\n")
 }
@@ -92,25 +90,24 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	// Shut down
-	log.Printf("Received shutdown command, committing suicide")
+	log.Printf("Received shutdown command, committing suicide.")
 	os.Exit(0)
 }
 
 
-func set_max_procs() {
-	/*NumCPU returns the number of logical CPUs usable by the current process. */
-	//numCpu := runtime.numCPU()
-
-	/*GOMAXPROCS sets the maximum number of CPUs that
-	can be executing simultaneously and returns the previous setting.
-	If n < 1, it does not change the current setting. The number of logical CPUs on the local machine can be queried with NumCPU. This call will go away when the scheduler improves. */
-	//runtime.GOPAXPROCS()
+func setMaxProcs() int {
+	maxProcs := runtime.GOMAXPROCS(0)
+	numCPU := runtime.NumCPU()
+	if maxProcs < numCPU {
+		return maxProcs
+	}
+	return numCPU
 }
 
-func get_local_ip() {
+func getLocalIp() {
 	/*Interfaces returns a list of the system's network interfaces. */
 	interfaces, err := net.Interfaces()
-	error_msg("Interface: ", err)
+	errorMsg("Interface: ", err)
 	fmt.Println(interfaces)
 
 	/*for _, i := range interfaces {
@@ -120,6 +117,6 @@ func get_local_ip() {
 	}*/
 
 	interface_addr, err := net.InterfaceAddrs()
-	error_msg("Interfaceaddr: ", err)
+	errorMsg("Interfaceaddr: ", err)
 	fmt.Println(interface_addr)
 }
