@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"sync"
 	"strings"
+	"math/rand"
+	"time"
 )
 
 
@@ -26,6 +28,14 @@ var hostaddress string
 var startedOuServer []string
 
 var wg sync.WaitGroup
+
+var ObservationUnit struct {
+	id int
+	temperature int
+	weather string
+	location int
+
+}
 
 func main() {
 
@@ -86,7 +96,6 @@ func startServer() {
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	//http.HandleFunc("/tellSOU", tellSuperObservationUnitHandler)
 
 	hostaddress = ouHost + ouPort
 	startedOuServer = append(startedOuServer, hostaddress)
@@ -103,6 +112,8 @@ func startServer() {
 	fmt.Println("Parent process id is:", pPid)
 
 	tellSuperObservationUnit()
+	weather_sensor()
+	temperature_sensor()
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
@@ -131,6 +142,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 
 
+/*Tell SOU who you are with localhost:xxxx..*/
 func tellSuperObservationUnit() {
 	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
@@ -142,7 +154,6 @@ func tellSuperObservationUnit() {
 	
 	_, err := http.Post(url, "string", addressBody)
 	errorMsg("Post address: ", err)
-	//fmt.Printf("Posted %s to %s", addressBody, url)
 }
 
 
@@ -170,4 +181,30 @@ func getLocalIp() {
 	interface_addr, err := net.InterfaceAddrs()
 	errorMsg("Interfaceaddr: ", err)
 	fmt.Println(interface_addr)
+}
+
+
+func weather_sensor() {
+	weather := make([]string, 0)
+	weather = append(weather,
+    "Sunny",
+    "Cloudy",
+    "Rain",
+    "Windy",
+    "Snow")
+
+	rand.Seed(time.Now().Unix()) 
+    rand_weather := weather[rand.Intn(len(weather))]
+	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
+}
+
+
+func random(min, max int) int {
+    rand.Seed(time.Now().Unix())
+    return rand.Intn(max - min) + min
+}
+
+func temperature_sensor() {
+	rand_number := random(-30, 20)
+	fmt.Println(rand_number)
 }

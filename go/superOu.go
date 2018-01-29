@@ -60,10 +60,22 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	//fmt.Printf(addrString)
-	runningNodes = append(runningNodes, addrString)
+	if !listContains(runningNodes, addrString) {
+		runningNodes = append(runningNodes, addrString)
+	}
 	fmt.Printf("%v\n", runningNodes)
+	//Check if node is list already..
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
+}
+
+//Check if a value is in a list/slice and return true or false
+func listContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
