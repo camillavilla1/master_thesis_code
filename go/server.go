@@ -161,7 +161,7 @@ func tellSuperObservationUnit() {
 /*Tell SOU that you're dead */
 func tellSuperObservationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SOUPort)
-	fmt.Printf("Sending to url: %s", url)
+	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
 	nodeString := ouHost + ouPort
 	fmt.Printf("\nWith the string: %s", nodeString)
