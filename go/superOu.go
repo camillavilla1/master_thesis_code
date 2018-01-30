@@ -23,6 +23,7 @@ func main() {
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)
+	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
 
 	log.Printf("Started Super Observation Unit on %s%s\n", hostname, ouPort)
 
@@ -51,6 +52,26 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+/*Remove OUnodes that are dead/don't run anymore*/
+func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	if listContains(runningNodes, addrString) {
+		runningNodes = removeElement(runningNodes, addrString)
+	}
+
+	fmt.Printf("%v\n", runningNodes)
+
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+}
+
+/*Receive from OUnodes who's running and append them to a list.*/
 func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
 	var addrString string
@@ -68,6 +89,20 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
+}
+
+//Remove element in a slice
+func removeElement(s []string, r string) []string {
+	for i, v := range s {
+		if len(s) == 1 {
+			s = append(s[:i])
+		}else {
+			if v == r {
+				return append(s[:i], s[i+1:]...)
+			}
+		}
+	}
+	return s
 }
 
 //Check if a value is in a list/slice and return true or false

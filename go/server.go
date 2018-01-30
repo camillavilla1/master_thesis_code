@@ -135,6 +135,8 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+	tellSuperObservationUnitDead()
+
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide.")
 	os.Exit(0)
@@ -153,9 +155,22 @@ func tellSuperObservationUnit() {
 	addressBody := strings.NewReader(nodeString)
 	
 	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Post address: ", err)
+	errorMsg("Tell Post address: ", err)
 }
 
+/*Tell SOU that you're dead */
+func tellSuperObservationUnitDead() {
+	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SOUPort)
+	fmt.Printf("Sending to url: %s", url)
+	
+	nodeString := ouHost + ouPort
+	fmt.Printf("\nWith the string: %s", nodeString)
+
+	addressBody := strings.NewReader(nodeString)
+	
+	_, err := http.Post(url, "string", addressBody)
+	errorMsg("Dead Post address: ", err)
+}
 
 func setMaxProcs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
