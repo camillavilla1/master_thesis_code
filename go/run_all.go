@@ -78,6 +78,10 @@ func main() {
 		//fmt.Println(i)
 		port := random_port()
 		s_port := strconv.Itoa(port)
+		//port := 8081
+		//port += 1
+		//s_port := strconv.Itoa(port)
+		//add port to taken_ports..
 
 		cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080 -localhost=localhost -port=:"+s_port)		
 
@@ -96,7 +100,6 @@ func find_port(num int, c chan int) {
 		number = random2(8081, 9090) 
 		available_port = append(available_port, number)
 	}
-
 
 	c <- number
 }
