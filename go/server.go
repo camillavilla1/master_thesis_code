@@ -62,6 +62,11 @@ func main() {
 
 }
 
+
+func printSlice(s []string) {
+	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
+}
+
 func GetLocalIP() string {
     addrs, err := net.InterfaceAddrs()
     if err != nil {
@@ -81,7 +86,7 @@ func GetLocalIP() string {
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&SOUPort, "SOUport", ":0", "Super OU port (prefix with colon)")
 	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
-	flagset.StringVar(&ouPort, "port", ":0", "OU port (prefix with colon)")
+	flagset.StringVar(&ouPort, "port", ":8081", "OU port (prefix with colon)")
 }
 
 
@@ -155,7 +160,7 @@ func tellSuperObservationUnit() {
 	addressBody := strings.NewReader(nodeString)
 	
 	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Tell Post address: ", err)
+	errorMsg("POST request to SOU failed: ", err)
 }
 
 /*Tell SOU that you're dead */
@@ -164,7 +169,7 @@ func tellSuperObservationUnitDead() {
 	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
 	nodeString := ouHost + ouPort
-	fmt.Printf("\nWith the string: %s", nodeString)
+	fmt.Printf("\nWith the string: %s\n", nodeString)
 
 	addressBody := strings.NewReader(nodeString)
 	

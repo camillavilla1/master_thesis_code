@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"bytes"
 )
 
 var taken_port []int
@@ -32,12 +33,31 @@ func main() {
 		s_port := strconv.Itoa(port)
 		if !sliceContains(taken_port, port) {
 			taken_port = append(taken_port, port)
-			cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080 -localhost=localhost -port=:"+s_port)		
+			cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080", "-host=localhost", "-port=:"+s_port)		
+			error_msg("Command error: ", err)
+			
+			//cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080 -host=localhost -port=:8082")		
+			fmt.Println(i)
 
-			//fmt.Println(cmnd)
+			var out bytes.Buffer
+			var stderr bytes.Buffer
+			cmnd.Stdout = &out
+			cmnd.Stderr = &stderr
 
-		    err := cmnd.Start()
+			err := cmnd.Start()
 		    error_msg("Start process: ", err)
+		    time.Sleep(1000 * time.Millisecond)
+		    //err = cmnd.Wait()
+		    //error_msg("Wait to exit.. ", err)
+		    
+		    //err := cmnd.Run()
+		    //error_msg("Run process: ", err)
+		    if err != nil {
+			    fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+			    return
+			} else {
+				fmt.Println("Result: " + out.String())
+			}
 
 			/*cmndIn, _ := cmnd.StdinPipe()
 		    cmndOut, _ := cmnd.StdoutPipe()
