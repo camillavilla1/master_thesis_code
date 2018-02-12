@@ -26,10 +26,11 @@ func main() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
+	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
 
 	log.Printf("Started Super Observation Unit on %s%s\n", hostname, ouPort)
 
-	broadcastReachablehosts()
+	//broadcastReachablehosts()
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -49,7 +50,7 @@ func stringify(input []string) string {
 	return strings.Join(input, ", ")
 }
 
-func broadcastReachablehosts() {
+/*func broadcastReachablehosts() {
 	fmt.Printf("\nBroadcasting reachable hosts\n")
 	var nodeString string
 	nodeString = ""
@@ -66,6 +67,23 @@ func broadcastReachablehosts() {
 		}
 	}
 }
+*/
+
+
+func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("FetchReachablehosts\n")
+	// We don't use the body, but read it anyway
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	fmt.Printf("Running nodes are: ")
+	printSlice(runningNodes)
+
+	for _, host := range runningNodes {
+		fmt.Fprintln(w, host)
+	}
+}
+
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
@@ -90,9 +108,9 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 		runningNodes = removeElement(runningNodes, addrString)
 	}
 
-	fmt.Printf("%v\n", runningNodes)
+	fmt.Printf("Running nodes are: %v\n", runningNodes)
 
-	broadcastReachablehosts()
+	//broadcastReachablehosts()
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -114,7 +132,7 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v\n", runningNodes)
 	//Check if node is list already..
 
-	broadcastReachablehosts()
+	//broadcastReachablehosts()
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -143,3 +161,9 @@ func listContains(s []string, e string) bool {
 	}
 	return false
 }
+
+func printSlice(s []string) {
+	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
+}
+
+

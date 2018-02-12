@@ -27,6 +27,7 @@ var hostaddress string
 var actualSegments int32
 
 var startedOuServer []string
+var reachableHosts []string
 
 var wg sync.WaitGroup
 
@@ -123,19 +124,18 @@ func retrieveAddresses(addr string) []string {
 
 
 func startServer() {
-	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
-
+	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	http.HandleFunc("/broadcastReachablehost", broadcastHandler)
+	//http.HandleFunc("/broadcastReachablehost", broadcastHandler)
 
 	hostaddress = ouHost + ouPort
 	startedOuServer = append(startedOuServer, hostaddress)
-	//fmt.Printf("%v\n", startedOuServer)
-
+	
+	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
 	//getLocalIp()
-	ret_val := GetLocalIP()
-	fmt.Printf("Local IP is: %s\n", ret_val)
+	//ret_val := GetLocalIP()
+	//fmt.Printf("Local IP is: %s\n", ret_val)
 	
 	pid := os.Getpid()
 	fmt.Println("Process id is:", pid)
@@ -144,6 +144,12 @@ func startServer() {
 	//fmt.Println("Parent process id is:", pPid)
 
 	tellSuperObservationUnit()
+
+	for {
+		reachableHosts = fetchReachablehosts()
+		printSlice(reachableHosts)
+		time.Sleep(4000 * time.Millisecond)	
+	}
 	//weather_sensor()
 	//temperature_sensor()
 
@@ -175,7 +181,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-
+/*
 func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("broadcastHandler\n")
 	var addrString string
@@ -200,9 +206,30 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
+}*/
+
+
+
+func fetchReachablehosts() []string {
+	fmt.Printf("fetchReachablehosts.\n")
+	url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
+	resp, err := http.Get(url)
+
+	if err != nil {
+			return []string{}
+	}
+
+	var bytes []byte
+	bytes, err = ioutil.ReadAll(resp.Body)
+	body := string(bytes)
+	resp.Body.Close()
+
+	/*TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.*/
+	trimmed := strings.TrimSpace(body)
+	nodes := strings.Split(trimmed, "\n")
+
+	return nodes
 }
-
-
 
 /*Tell SOU who you are with localhost:xxxx..*/
 func tellSuperObservationUnit() {
