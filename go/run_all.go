@@ -23,7 +23,7 @@ func main() {
 	numServers := os.Args[1]
 	fmt.Println(numServers)
 	numServers2, err := strconv.Atoi(numServers)
-	error_msg("Str to int: ", err)
+	errorMsg("Str to int: ", err)
 
 	port := 8081
 	for i := 0; i < numServers2; i++ {
@@ -34,9 +34,8 @@ func main() {
 		if !sliceContains(taken_port, port) {
 			taken_port = append(taken_port, port)
 			cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080", "-host=localhost", "-port=:"+s_port)		
-			error_msg("Command error: ", err)
-			
-			//cmnd := exec.Command("go", "run", "server.go", "run", "-SOUport=8080 -host=localhost -port=:8082")		
+			errorMsg("Command error: ", err)
+				
 			fmt.Println(i)
 
 			var out bytes.Buffer
@@ -45,13 +44,13 @@ func main() {
 			cmnd.Stderr = &stderr
 
 			err := cmnd.Start()
-		    error_msg("Start process: ", err)
+		    errorMsg("Error starting process: ", err)
 		    time.Sleep(1000 * time.Millisecond)
 		    //err = cmnd.Wait()
-		    //error_msg("Wait to exit.. ", err)
+		    //errorMsg("Wait to exit.. ", err)
 		    
 		    //err := cmnd.Run()
-		    //error_msg("Run process: ", err)
+		    //errorMsg("Run process: ", err)
 		    if err != nil {
 			    fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
 			    return
@@ -71,7 +70,7 @@ func main() {
 }
 
 
-func error_msg(s string, err error) {
+func errorMsg(s string, err error) {
 	if err != nil {
 		log.Fatal(s, err)
 	}

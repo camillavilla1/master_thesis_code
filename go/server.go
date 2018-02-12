@@ -24,6 +24,7 @@ var SOUPort string
 
 //var hostname string
 var hostaddress string
+var actualSegments int32
 
 var startedOuServer []string
 
@@ -31,10 +32,11 @@ var wg sync.WaitGroup
 
 var ObservationUnit struct {
 	id int
+	addr string
+	neighbours []string
 	temperature int
 	weather string
 	location int
-
 }
 
 func main() {
@@ -62,10 +64,6 @@ func main() {
 
 }
 
-
-func printSlice(s []string) {
-	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
-}
 
 func GetLocalIP() string {
     addrs, err := net.InterfaceAddrs()
@@ -96,11 +94,40 @@ func errorMsg(s string, err error) {
 	}
 }
 
+func printSlice(s []string) {
+	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
+}
+
+//Check if a value is in a list/slice and return true or false
+func listContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+//Get address, check if it is started nodes slice, if not: append the address
+func retrieveAddresses(addr string) []string {
+
+	if listContains(startedOuServer, addr) {
+		fmt.Printf("List contains %s.\n", addr)
+		return startedOuServer
+	} else {
+		fmt.Printf("List do not contain, need to append %s.\n", addr)
+		startedOuServer = append(startedOuServer, addr)
+		return startedOuServer
+	}
+}
+
+
 func startServer() {
 	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
+	http.HandleFunc("/broadcastReachablehost", broadcastHandler)
 
 	hostaddress = ouHost + ouPort
 	startedOuServer = append(startedOuServer, hostaddress)
@@ -113,12 +140,12 @@ func startServer() {
 	pid := os.Getpid()
 	fmt.Println("Process id is:", pid)
 
-	pPid := os.Getppid()
-	fmt.Println("Parent process id is:", pPid)
+	//pPid := os.Getppid()
+	//fmt.Println("Parent process id is:", pPid)
 
 	tellSuperObservationUnit()
-	weather_sensor()
-	temperature_sensor()
+	//weather_sensor()
+	//temperature_sensor()
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
@@ -149,13 +176,41 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 
 
+func broadcastHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("broadcastHandler\n")
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing broadcast (%d items): %s", pc, rateErr)
+	}
+
+	fmt.Printf(addrString)
+	fmt.Printf("\n")
+	stringList := strings.Split(addrString, ",")
+
+	for _, addr := range stringList {
+		startedOuServer = retrieveAddresses(addr)
+	}
+	actualSegments = int32(len(startedOuServer))
+
+	//fmt.Println(actualSegments)
+	printSlice(startedOuServer)
+
+
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+}
+
+
+
 /*Tell SOU who you are with localhost:xxxx..*/
 func tellSuperObservationUnit() {
 	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
 	
 	nodeString := ouHost + ouPort
-	fmt.Printf("\nWith the string: %s", nodeString)
+	fmt.Printf("\nWith the string: %s.\n", nodeString)
 
 	addressBody := strings.NewReader(nodeString)
 	

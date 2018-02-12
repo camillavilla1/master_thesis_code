@@ -7,11 +7,13 @@ import (
 	"io"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	//"sync/atomic"
 )
 
 var hostname string
 var ouPort string
+var hostaddress string
 
 var runningNodes []string
 var partitionScheme int32
@@ -27,6 +29,8 @@ func main() {
 
 	log.Printf("Started Super Observation Unit on %s%s\n", hostname, ouPort)
 
+	broadcastReachablehosts()
+
 	err := http.ListenAndServe(ouPort, nil)
 
 	if err != nil {
@@ -41,6 +45,27 @@ func errorMsg(s string, err error) {
 	}
 }
 
+func stringify(input []string) string {
+	return strings.Join(input, ", ")
+}
+
+func broadcastReachablehosts() {
+	fmt.Printf("\nBroadcasting reachable hosts\n")
+	var nodeString string
+	nodeString = ""
+	hostaddress = hostname + ouPort
+
+	nodeString = stringify(runningNodes)
+	for _, addr := range runningNodes {
+		url := fmt.Sprintf("http://%s/broadcastReachablehost", addr)
+		fmt.Printf("Broadcast to: %s", url)
+		if addr != hostaddress {
+			fmt.Printf("\nwith: %s.\n", nodeString)
+			addressBody := strings.NewReader(nodeString)
+			http.Post(url, "string", addressBody)
+		}
+	}
+}
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
@@ -67,6 +92,8 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("%v\n", runningNodes)
 
+	broadcastReachablehosts()
+
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 }
@@ -86,6 +113,8 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Printf("%v\n", runningNodes)
 	//Check if node is list already..
+
+	broadcastReachablehosts()
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
