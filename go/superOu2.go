@@ -28,9 +28,7 @@ func main() {
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
 	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
 
-	log.Printf("Started Super Observation Unit/Base Station on %s%s\n", hostname, ouPort)
-
-	//broadcastReachablehosts()
+	log.Printf("Started Base Station 2 on %s%s\n", hostname, ouPort)
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -71,14 +69,14 @@ func stringify(input []string) string {
 
 
 func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("FetchReachablehosts\n")
+	fmt.Printf("\n### FetchReachablehosts ###\n")
 	// We don't use the body, but read it anyway
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
 	fmt.Printf("Running nodes are: ")
 	printSlice(runningNodes)
-
+	
 	for _, host := range runningNodes {
 		fmt.Fprintln(w, host)
 	}
@@ -116,6 +114,13 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 }
 
+/*func reachableHosts() []string {
+	if !listContains(runningNodes, addrString) {
+		runningNodes = append(runningNodes, addrString)
+	}
+	return runningNodes
+}*/
+
 /*Receive from OUnodes who's running and append them to a list.*/
 func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
@@ -129,8 +134,6 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	if !listContains(runningNodes, addrString) {
 		runningNodes = append(runningNodes, addrString)
 	}
-	fmt.Printf("%v\n", runningNodes)
-	//Check if node is list already..
 
 	//broadcastReachablehosts()
 
