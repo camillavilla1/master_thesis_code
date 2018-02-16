@@ -122,7 +122,7 @@ func retrieveAddresses(addr string) []string {
 		fmt.Printf("List contains %s.\n", addr)
 		return startedNodes
 	} else {
-		fmt.Printf("List do not contain, need to append %s.\n", addr)
+		fmt.Printf("List do not contain %s, need to append.\n", addr)
 		startedNodes = append(startedNodes, addr)
 		return startedNodes
 	}
@@ -228,11 +228,10 @@ func heartbeat() {
 				resp, err := http.Get(url)
 				if err != nil {
 					if listContains(startedNodes, addr) {
-						fmt.Printf("Contains in list\n")
 						clusterHead(hostaddress)
+						tellCH()
 					}
 				} else {
-					fmt.Printf("Does not contain in list\n")
 					_, err = ioutil.ReadAll(resp.Body)
 					startedNodes = retrieveAddresses(addr)
 					resp.Body.Close()
@@ -303,6 +302,13 @@ func tellSuperObservationUnitDead() {
 	
 	_, err := http.Post(url, "string", addressBody)
 	errorMsg("Dead Post address: ", err)
+}
+
+func tellCH() {
+	url := fmt.Sprintf("http://%s%s/chief", biggestAddress, ouPort)	
+	message := "You're the CH!"
+	addressBody := strings.NewReader(message)
+	http.Post(url, "string", addressBody)
 }
 
 

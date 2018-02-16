@@ -332,6 +332,7 @@ func getLocalIp() {
 	fmt.Println(interface_addr)
 }
 
+
 func weather_sensor() {
 	weather := make([]string, 0)
 	weather = append(weather,
@@ -345,6 +346,7 @@ func weather_sensor() {
     rand_weather := weather[rand.Intn(len(weather))]
 	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
 }
+
 
 func random(min, max int) int {
     rand.Seed(time.Now().Unix())
