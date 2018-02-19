@@ -143,11 +143,11 @@ func startServer() {
 	pid := os.Getpid()
 	fmt.Println("Process id is:", pid)
 
-	//tellBaseStationUnit()
 
-	if clusterHead(hostaddress) {
+	tellBaseStationUnit()
+	/*if clusterHead(hostaddress) {
 		tellBaseStationUnit()
-	} /*else {
+	}else {
 		tellSuperObservationUnit()
 	}*/
 
@@ -160,7 +160,13 @@ func startServer() {
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
 
 	go getRunningNodes()
-
+	if clusterHead(hostaddress) {
+		tellCH()
+		//tellNodesaboutClusterHead()
+	} else {
+		//tellSuperObservationUnit()
+		fmt.Printf("NOT CH!!")
+	}
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
@@ -190,34 +196,8 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-/*
-func broadcastHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("broadcastHandler\n")
-	var addrString string
 
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing broadcast (%d items): %s", pc, rateErr)
-	}
-
-	fmt.Printf(addrString)
-	fmt.Printf("\n")
-	stringList := strings.Split(addrString, ",")
-
-	for _, addr := range stringList {
-		startedOuServer = retrieveAddresses(addr)
-	}
-	actualSegments = int32(len(startedOuServer))
-
-	//fmt.Println(actualSegments)
-	printSlice(startedOuServer)
-
-
-	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
-}*/
-
-//Ping all reachable host to check if dead or alive
+//Ping BS reachable host to check which nodes that are (dead or) alive
 func getRunningNodes() {
 	fmt.Printf("GET RUNNING NODES\n")
 
@@ -244,29 +224,7 @@ func getRunningNodes() {
 	}	
 }
 
-//Ping all reachable host to check if dead or alive
-func heartbeat() {
-	for {
-		for _, addr := range reachableHosts {
-			url := fmt.Sprintf("http://%s", addr)
-			fmt.Printf("HEARTBEAT URL IS: %s.\n", url)
-			if addr != hostaddress {
-				resp, err := http.Get(url)
-				if err != nil {
-					if listContains(startedNodes, addr) {
-						clusterHead(hostaddress)
-						tellCH()
-					}
-				} else {
-					_, err = ioutil.ReadAll(resp.Body)
-					startedNodes = retrieveAddresses(addr)
-					resp.Body.Close()
-				}
-			}
-		}	
-		time.Sleep(2000 * time.Millisecond)
-	}
-}
+
 
 func fetchReachablehosts() []string {
 	fmt.Printf("\n### fetchReachablehosts ###\n")
@@ -336,6 +294,17 @@ func tellCH() {
 	addressBody := strings.NewReader(message)
 	http.Post(url, "string", addressBody)
 }
+
+/*func tellNodesaboutClusterHead() {
+	for _, addr := range startedNodes {
+		url := fmt.Sprintf("http://%s", addr)
+		fmt.Printf("Telling node %s about who is CH.", url)
+		message := ("%s is CH", biggestAddress)
+		addressBody := strings.NewReader(message)
+		http.Post(url, "string", addressBody)
+	}
+
+}*/
 
 
 func clusterHead(address string) bool {

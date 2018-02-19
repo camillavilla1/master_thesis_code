@@ -49,25 +49,6 @@ func stringify(input []string) string {
 	return strings.Join(input, ", ")
 }
 
-/*func broadcastReachablehosts() {
-	fmt.Printf("\nBroadcasting reachable hosts\n")
-	var nodeString string
-	nodeString = ""
-	hostaddress = hostname + ouPort
-
-	nodeString = stringify(runningNodes)
-	for _, addr := range runningNodes {
-		url := fmt.Sprintf("http://%s/broadcastReachablehost", addr)
-		fmt.Printf("Broadcast to: %s", url)
-		if addr != hostaddress {
-			fmt.Printf("\nwith: %s.\n", nodeString)
-			addressBody := strings.NewReader(nodeString)
-			http.Post(url, "string", addressBody)
-		}
-	}
-}
-*/
-
 
 func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### FetchReachablehosts ###\n")
