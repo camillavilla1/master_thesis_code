@@ -159,7 +159,7 @@ func startServer() {
 
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
 
-	go heartbeat()
+	go getRunningNodes()
 
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -217,6 +217,32 @@ func broadcastHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 }*/
 
+//Ping all reachable host to check if dead or alive
+func getRunningNodes() {
+	fmt.Printf("GET RUNNING NODES\n")
+
+	for{
+		url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
+		resp, err := http.Get(url)
+
+		if err != nil {
+			errorMsg("ERROR: ", err)
+		}
+
+		var bytes []byte
+		bytes, err = ioutil.ReadAll(resp.Body)
+		body := string(bytes)
+		resp.Body.Close()
+
+		/*TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.*/
+		trimmed := strings.TrimSpace(body)
+		nodes := strings.Split(trimmed, "\n")
+
+		printSlice(nodes)
+
+		time.Sleep(4000 * time.Millisecond)
+	}	
+}
 
 //Ping all reachable host to check if dead or alive
 func heartbeat() {

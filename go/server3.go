@@ -36,15 +36,6 @@ var biggestAddress string
 
 var wg sync.WaitGroup
 
-var ObservationUnit struct {
-	id int
-	addr string
-	neighbors []string
-	clusterHead string
-	temperature int
-	weather string
-	location int
-}
 
 func main() {
 
@@ -151,16 +142,17 @@ func startServer() {
 	//fmt.Println("Parent process id is:", pPid)
 
 	tellSuperObservationUnit()
-	hashAddr := hashAddress(hostaddress)
-	clusterHead(hashAddr)
-	fmt.Println("Hashed address is: ", hashAddr)
 	//Add this hashed address with hostaddress to a map/tuple?
 
 	//for {
 	reachableHosts = fetchReachablehosts()
 	printSlice(reachableHosts)
-	time.Sleep(4000 * time.Millisecond)	
+	//time.Sleep(4000 * time.Millisecond)	
 	//}
+
+	hashAddr := hashAddress(hostaddress)
+	clusterHead(hashAddr)
+	fmt.Println("Hashed address is: ", hashAddr)
 	//weather_sensor()
 	//temperature_sensor()
 
