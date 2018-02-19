@@ -27,6 +27,7 @@ func main() {
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
 	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
+	
 
 	log.Printf("Started Base Station 2 on %s%s\n", hostname, ouPort)
 
