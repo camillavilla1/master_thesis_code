@@ -13,12 +13,13 @@ import (
 
 var hostname string
 var ouPort string
-var hostaddress string
+
 
 var runningNodes []string
-var partitionScheme int32
+var numNodesRunning int
 
 func main() {
+	numNodesRunning = 0
 	hostname = "localhost"
 	flag.StringVar(&ouPort, "OUport", ":8080", "Super Observation Unit port (prefix with colon)")
 	flag.Parse()
@@ -86,22 +87,17 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if listContains(runningNodes, addrString) {
 		runningNodes = removeElement(runningNodes, addrString)
+		numNodesRunning -= 1
 	}
 
 	fmt.Printf("Running nodes are: %v\n", runningNodes)
+	fmt.Println("Number of nodes running: ", numNodesRunning)
 
-	//broadcastReachablehosts()
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 }
 
-/*func reachableHosts() []string {
-	if !listContains(runningNodes, addrString) {
-		runningNodes = append(runningNodes, addrString)
-	}
-	return runningNodes
-}*/
 
 /*Receive from OUnodes who's running and append them to a list.*/
 func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
@@ -115,9 +111,10 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !listContains(runningNodes, addrString) {
 		runningNodes = append(runningNodes, addrString)
+		numNodesRunning += 1
 	}
 
-	//broadcastReachablehosts()
+	fmt.Println("Number of nodes running: ", numNodesRunning)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()

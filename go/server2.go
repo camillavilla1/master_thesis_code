@@ -23,12 +23,8 @@ var ouHost string
 
 var SOUPort string
 
-
 var hostaddress string
 
-var actualSegments int32
-
-//var startedOuServer []string
 
 var reachableHosts []string
 var startedNodes []string
@@ -37,15 +33,8 @@ var biggestAddress string
 
 var wg sync.WaitGroup
 
-var ObservationUnit struct {
-	id int
-	addr string
-	neighbors []string
-	clusterHead string
-	temperature int
-	weather string
-	location int
-}
+var clusterHead string
+
 
 func main() {
 
@@ -133,6 +122,7 @@ func startServer() {
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
+	http.HandleFunc("/clusterHead", clusterHeadHandler)
 
 	hostaddress = ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
@@ -145,24 +135,18 @@ func startServer() {
 
 
 	tellBaseStationUnit()
-	/*if clusterHead(hostaddress) {
-		tellBaseStationUnit()
-	}else {
-		tellSuperObservationUnit()
-	}*/
 
 	reachableHosts = fetchReachablehosts()
 
-
-	actualSegments = int32(len(startedNodes))
 	printSlice(startedNodes)
 
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
 
 	go getRunningNodes()
-	if clusterHead(hostaddress) {
-		tellCH()
-		//tellNodesaboutClusterHead()
+	if clusterHeadElection(hostaddress) {
+		fmt.Printf("I'm the CH!!")
+		//tellCH()
+		tellNodesaboutClusterHead()
 	} else {
 		//tellSuperObservationUnit()
 		fmt.Printf("NOT CH!!")
@@ -172,6 +156,18 @@ func startServer() {
 	if err != nil {
 		log.Panic(err)
 	}
+
+}
+
+func clusterHeadHandler(w http.ResponseWriter, r *http.Request) {
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	clusterHead = addrString
 
 }
 
@@ -199,7 +195,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 //Ping BS reachable host to check which nodes that are (dead or) alive
 func getRunningNodes() {
-	fmt.Printf("GET RUNNING NODES\n")
+	fmt.Printf("\nGET RUNNING NODES\n")
 
 	for{
 		url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
@@ -295,19 +291,18 @@ func tellCH() {
 	http.Post(url, "string", addressBody)
 }
 
-/*func tellNodesaboutClusterHead() {
+func tellNodesaboutClusterHead() {
 	for _, addr := range startedNodes {
-		url := fmt.Sprintf("http://%s", addr)
-		fmt.Printf("Telling node %s about who is CH.", url)
-		message := ("%s is CH", biggestAddress)
+		url := fmt.Sprintf("http://%s/clusterHead", addr)
+		fmt.Printf("\nTelling node %s about who is CH.", url)
+		message := biggestAddress
 		addressBody := strings.NewReader(message)
 		http.Post(url, "string", addressBody)
 	}
+}
 
-}*/
 
-
-func clusterHead(address string) bool {
+func clusterHeadElection(address string) bool {
 	var biggest uint32
 
 	for i, addr := range startedNodes {
@@ -326,10 +321,8 @@ func clusterHead(address string) bool {
 
 	hAddress := hashAddress(address)
 	if biggest == hAddress {
-		fmt.Printf("I'm the CH\n")
 		return true
 	} else {
-		fmt.Printf("I'm NOT CH\n")
 		return false
 	}
 }

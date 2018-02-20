@@ -1,5 +1,3 @@
-/* go run superOu3.go*/
-
 package main
 
 import (
@@ -11,16 +9,30 @@ import (
 	"io/ioutil"
 	"strings"
 	//"sync/atomic"
+	"encoding/json"
 )
 
 var hostname string
 var ouPort string
-var hostaddress string
+
 
 var runningNodes []string
-var partitionScheme int32
+var numNodesRunning int
+
+type ObservationUnit struct {
+	addr string
+	id uint32
+	pid int
+	neighbors []string
+	location int
+	//clusterHead string
+	//temperature int
+	//weather string
+}
+
 
 func main() {
+	numNodesRunning = 0
 	hostname = "localhost"
 	flag.StringVar(&ouPort, "OUport", ":8080", "Super Observation Unit port (prefix with colon)")
 	flag.Parse()
@@ -29,10 +41,9 @@ func main() {
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
 	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
+	
 
-	log.Printf("Started Base Station 3 on %s%s\n", hostname, ouPort)
-
-	//broadcastReachablehosts()
+	log.Printf("Started Base Station 2 on %s%s\n", hostname, ouPort)
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -52,35 +63,16 @@ func stringify(input []string) string {
 	return strings.Join(input, ", ")
 }
 
-/*func broadcastReachablehosts() {
-	fmt.Printf("\nBroadcasting reachable hosts\n")
-	var nodeString string
-	nodeString = ""
-	hostaddress = hostname + ouPort
-
-	nodeString = stringify(runningNodes)
-	for _, addr := range runningNodes {
-		url := fmt.Sprintf("http://%s/broadcastReachablehost", addr)
-		fmt.Printf("Broadcast to: %s", url)
-		if addr != hostaddress {
-			fmt.Printf("\nwith: %s.\n", nodeString)
-			addressBody := strings.NewReader(nodeString)
-			http.Post(url, "string", addressBody)
-		}
-	}
-}
-*/
-
 
 func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("FetchReachablehosts\n")
+	fmt.Printf("\n### FetchReachablehosts ###\n")
 	// We don't use the body, but read it anyway
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
 	fmt.Printf("Running nodes are: ")
 	printSlice(runningNodes)
-
+	
 	for _, host := range runningNodes {
 		fmt.Fprintln(w, host)
 	}
@@ -108,18 +100,49 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if listContains(runningNodes, addrString) {
 		runningNodes = removeElement(runningNodes, addrString)
+		numNodesRunning -= 1
 	}
 
 	fmt.Printf("Running nodes are: %v\n", runningNodes)
+	fmt.Println("Number of nodes running: ", numNodesRunning)
 
-	//broadcastReachablehosts()
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 }
 
+
+
 /*Receive from OUnodes who's running and append them to a list.*/
 func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
+	// We don't use the body, but read it anyway
+    /*decoder := json.NewDecoder(r.Body)
+    var t ObservationUnit
+    err := decoder.Decode(&t)
+    if err != nil {
+        panic(err)
+    }
+    defer r.Body.Close()
+    log.Println(t)*/
+
+	body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        panic(err)
+    }
+    log.Println(string(body))
+    
+    decoder := json.NewDecoder(r.Body)
+    var t ObservationUnit
+    err = decoder.Decode(&t)
+    if err != nil {
+        panic(err)
+    }
+    log.Println(t)
+}
+
+
+/*Receive from OUnodes who's running and append them to a list.*/
+/*func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
 	var addrString string
 
@@ -130,15 +153,14 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !listContains(runningNodes, addrString) {
 		runningNodes = append(runningNodes, addrString)
+		numNodesRunning += 1
 	}
-	fmt.Printf("%v\n", runningNodes)
-	//Check if node is list already..
 
-	//broadcastReachablehosts()
+	fmt.Println("Number of nodes running: ", numNodesRunning)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
-}
+}*/
 
 //Remove element in a slice
 func removeElement(s []string, r string) []string {

@@ -1,5 +1,3 @@
-/*go run server3.go run -SOUport=8080 -host=localhost -port=:8083 */
-
 package main
 
 import (
@@ -17,6 +15,8 @@ import (
 	"math/rand"
 	"time"
 	"hash/fnv"
+	"bytes"
+	"encoding/json"
 )
 
 
@@ -25,23 +25,34 @@ var ouHost string
 
 var SOUPort string
 
-//var hostname string
 var hostaddress string
-//var actualSegments int32
 
-var startedOuServer []string
+
 var reachableHosts []string
+var startedNodes []string
 
 var biggestAddress string
 
 var wg sync.WaitGroup
+
+var clusterHead string
+
+type ObservationUnit struct {
+	addr string
+	id uint32
+	pid int
+	neighbors []string
+	location int
+	//clusterHead string
+	//temperature int
+	//weather string
+}
 
 
 func main() {
 
 	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
 	addCommonFlags(runMode)
-	//var runHost = runMode.String("host", "localhost", "Run host")
 
 	if len(os.Args) == 1 {
 		log.Fatalf("No mode specified\n")
@@ -50,13 +61,12 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		runMode.Parse(os.Args[2:])
-		//wg.Add(1)
+		wg.Add(1)
 		ret := setMaxProcs()
 		fmt.Println(ret)
-		//go startServer()
-		//defer wg.Done()
-		//wg.Wait()
-		startServer()
+		go startServer()
+		wg.Wait()
+
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
 	}
@@ -110,56 +120,70 @@ func listContains(s []string, e string) bool {
 //Get address, check if it is started nodes slice, if not: append the address
 func retrieveAddresses(addr string) []string {
 
-	if listContains(startedOuServer, addr) {
+	if listContains(startedNodes, addr) {
 		fmt.Printf("List contains %s.\n", addr)
-		return startedOuServer
+		return startedNodes
 	} else {
-		fmt.Printf("List do not contain, need to append %s.\n", addr)
-		startedOuServer = append(startedOuServer, addr)
-		return startedOuServer
+		fmt.Printf("List do not contain %s, need to append.\n", addr)
+		startedNodes = append(startedNodes, addr)
+		return startedNodes
 	}
 }
 
 
 func startServer() {
+	ou := new(ObservationUnit)
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	//http.HandleFunc("/broadcastReachablehost", broadcastHandler)
+	http.HandleFunc("/clusterHead", clusterHeadHandler)
 
 	hostaddress = ouHost + ouPort
-	startedOuServer = append(startedOuServer, hostaddress)
+	startedNodes = append(startedNodes, hostaddress)
 	
 	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
-	//getLocalIp()
-	//ret_val := GetLocalIP()
-	//fmt.Printf("Local IP is: %s\n", ret_val)
-	
-	pid := os.Getpid()
-	fmt.Println("Process id is:", pid)
 
-	//pPid := os.Getppid()
-	//fmt.Println("Parent process id is:", pPid)
+	//ou := ObservationUnit
+	ou.pid = os.Getpid()
+	ou.id = hashAddress(hostaddress)
+	ou.addr = hostaddress
+	fmt.Println("Process id is:", ou.pid)
+	fmt.Println("Node id is:", ou.id)
 
-	tellSuperObservationUnit()
-	//Add this hashed address with hostaddress to a map/tuple?
+	tellBaseStationUnit(ou)
 
-	//for {
 	reachableHosts = fetchReachablehosts()
-	printSlice(reachableHosts)
-	//time.Sleep(4000 * time.Millisecond)	
-	//}
 
-	hashAddr := hashAddress(hostaddress)
-	clusterHead(hashAddr)
-	fmt.Println("Hashed address is: ", hashAddr)
-	//weather_sensor()
-	//temperature_sensor()
+	printSlice(startedNodes)
+
+	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
+
+	go getRunningNodes()
+	if clusterHeadElection(hostaddress) {
+		fmt.Printf("I'm the CH!!")
+		//tellCH()
+		tellNodesaboutClusterHead()
+	} else {
+		//tellSuperObservationUnit()
+		fmt.Printf("NOT CH!!")
+	}
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
 		log.Panic(err)
 	}
+
+}
+
+func clusterHeadHandler(w http.ResponseWriter, r *http.Request) {
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	clusterHead = addrString
 
 }
 
@@ -184,37 +208,38 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-/*
-func broadcastHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("broadcastHandler\n")
-	var addrString string
 
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing broadcast (%d items): %s", pc, rateErr)
-	}
+//Ping BS reachable host to check which nodes that are (dead or) alive
+func getRunningNodes() {
+	fmt.Printf("\nGET RUNNING NODES\n")
 
-	fmt.Printf(addrString)
-	fmt.Printf("\n")
-	stringList := strings.Split(addrString, ",")
+	for{
+		url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
+		resp, err := http.Get(url)
 
-	for _, addr := range stringList {
-		startedOuServer = retrieveAddresses(addr)
-	}
-	actualSegments = int32(len(startedOuServer))
+		if err != nil {
+			errorMsg("ERROR: ", err)
+		}
 
-	//fmt.Println(actualSegments)
-	printSlice(startedOuServer)
+		var bytes []byte
+		bytes, err = ioutil.ReadAll(resp.Body)
+		body := string(bytes)
+		resp.Body.Close()
 
+		/*TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.*/
+		trimmed := strings.TrimSpace(body)
+		nodes := strings.Split(trimmed, "\n")
 
-	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
-}*/
+		printSlice(nodes)
+
+		time.Sleep(4000 * time.Millisecond)
+	}	
+}
 
 
 
 func fetchReachablehosts() []string {
-	fmt.Printf("fetchReachablehosts.\n")
+	fmt.Printf("\n### fetchReachablehosts ###\n")
 	url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
 	resp, err := http.Get(url)
 
@@ -234,8 +259,26 @@ func fetchReachablehosts() []string {
 	return nodes
 }
 
+func tellBaseStationUnit(ou *ObservationUnit) {
+	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
+	fmt.Printf("Sending to url: %s", url)
+	//ou := new(ObservationUnit)
+	body := ou
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(body)
+	fmt.Printf(string(body))
+	fmt.Printf("\nWith body: %+v.\n", body)
+	fmt.Printf(".................\n")
+	//addressBody := strings.NewReader(nodeString)
+	fmt.Sprintf("%s", b)
+	fmt.Printf("........\n")
+	res, err := http.Post(url, "bytes", b)
+	errorMsg("POST request to SOU failed: ", err)
+	io.Copy(os.Stdout, res.Body)
+}
+
 /*Tell SOU who you are with localhost:xxxx..*/
-func tellSuperObservationUnit() {
+func tellBaseStationUnit2() {
 	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
 	
@@ -247,6 +290,7 @@ func tellSuperObservationUnit() {
 	_, err := http.Post(url, "string", addressBody)
 	errorMsg("POST request to SOU failed: ", err)
 }
+
 
 /*Tell SOU that you're dead */
 func tellSuperObservationUnitDead() {
@@ -262,16 +306,29 @@ func tellSuperObservationUnitDead() {
 	errorMsg("Dead Post address: ", err)
 }
 
+func tellCH() {
+	url := fmt.Sprintf("http://%s%s/chief", biggestAddress, ouPort)	
+	message := "You're the CH!"
+	addressBody := strings.NewReader(message)
+	http.Post(url, "string", addressBody)
+}
 
-func clusterHead(address uint32) bool {
+func tellNodesaboutClusterHead() {
+	for _, addr := range startedNodes {
+		url := fmt.Sprintf("http://%s/clusterHead", addr)
+		fmt.Printf("\nTelling node %s about who is CH.", url)
+		message := biggestAddress
+		addressBody := strings.NewReader(message)
+		http.Post(url, "string", addressBody)
+	}
+}
+
+
+func clusterHeadElection(address string) bool {
 	var biggest uint32
 
-	for i, addr := range startedOuServer {
-		h := fnv.New32a()
-		h.Write([]byte(addr))
-		bs := h.Sum32()
-
-		//bs := hashAddress(addr)
+	for i, addr := range startedNodes {
+		bs := hashAddress(addr)
 
 		if i == 0 {
 			biggest = bs
@@ -284,11 +341,10 @@ func clusterHead(address uint32) bool {
 		}
 	}
 
-	if biggest == address {
-		fmt.Printf("I'm the CH\n")
+	hAddress := hashAddress(address)
+	if biggest == hAddress {
 		return true
 	} else {
-		fmt.Printf("I'm NOT CH\n")
 		return false
 	}
 }
@@ -302,7 +358,7 @@ func hashAddress(address string) uint32 {
 }
 
 func setMaxProcs() int {
-	maxProcs := runtime.GOMAXPROCS(2)
+	maxProcs := runtime.GOMAXPROCS(0)
 	numCPU := runtime.NumCPU()
 	if maxProcs < numCPU {
 		return maxProcs
@@ -327,7 +383,6 @@ func getLocalIp() {
 	fmt.Println(interface_addr)
 }
 
-
 func weather_sensor() {
 	weather := make([]string, 0)
 	weather = append(weather,
@@ -340,8 +395,8 @@ func weather_sensor() {
 	rand.Seed(time.Now().Unix()) 
     rand_weather := weather[rand.Intn(len(weather))]
 	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
+	//ObservationUnit.weather = rand_weather
 }
-
 
 func random(min, max int) int {
     rand.Seed(time.Now().Unix())
@@ -350,5 +405,6 @@ func random(min, max int) int {
 
 func temperature_sensor() {
 	rand_number := random(-30, 20)
+	//ObservationUnit.temperature = rand_number
 	fmt.Println(rand_number)
 }
