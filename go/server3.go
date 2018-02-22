@@ -15,9 +15,7 @@ import (
 	"math/rand"
 	"time"
 	"hash/fnv"
-	//"bytes"
 	"encoding/json"
-
 )
 
 
@@ -71,7 +69,6 @@ func main() {
 	default:
 		log.Fatalf("Unknown mode %q\n", os.Args[1])
 	}
-
 }
 
 
@@ -144,12 +141,9 @@ func startServer() {
 	
 	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
 
-	//ou := ObservationUnit
 	ou.Pid = os.Getpid()
 	ou.Id = hashAddress(hostaddress)
 	ou.Addr = hostaddress
-	//fmt.Println("Process id is:", ou.Pid)
-	//fmt.Println("Node id is:", ou.Id)
 	fmt.Println(ou)
 
 	tellBaseStationUnit(ou)
@@ -186,7 +180,6 @@ func clusterHeadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clusterHead = addrString
-
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,13 +195,12 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	tellSuperObservationUnitDead()
+	tellBaseStationUnitDead()
 
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide.")
 	os.Exit(0)
 }
-
 
 
 //Ping BS reachable host to check which nodes that are (dead or) alive
@@ -246,7 +238,7 @@ func fetchReachablehosts() []string {
 	resp, err := http.Get(url)
 
 	if err != nil {
-			return []string{}
+		return []string{}
 	}
 
 	var bytes []byte
@@ -261,54 +253,29 @@ func fetchReachablehosts() []string {
 	return nodes
 }
 
+/*Tell BS that node is up and running*/
 func tellBaseStationUnit(ou *ObservationUnit) {
 	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
-	
 
 	b, err := json.Marshal(ou)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("####\n")
+	fmt.Printf("\nwith data: ")
 	fmt.Println(string(b))
-	fmt.Printf("####\n")
-//.................
-	//ou := new(ObservationUnit)
-	//body := ou
-	/*b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(ou)
-	fmt.Println(ou)
-	fmt.Printf("####\n")
-	fmt.Printf("\nWith body: %+v.\n", ou)
-	fmt.Printf(".................\n")
-	fmt.Sprintf("%s", b)
-	fmt.Printf("........\n")
-	*/
+
 	addressBody := strings.NewReader(string(b))
+
 	res, err := http.Post(url, "bytes", addressBody)
 	errorMsg("POST request to SOU failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
 
-/*Tell SOU who you are with localhost:xxxx..*/
-func tellBaseStationUnit2() {
-	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
-	fmt.Printf("Sending to url: %s", url)
-	
-	nodeString := ouHost + ouPort
-	fmt.Printf("\nWith the string: %s.\n", nodeString)
-
-	addressBody := strings.NewReader(nodeString)
-	
-	_, err := http.Post(url, "string", addressBody)
-	errorMsg("POST request to SOU failed: ", err)
-}
-
 
 /*Tell SOU that you're dead */
-func tellSuperObservationUnitDead() {
+func tellBaseStationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SOUPort)
 	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
@@ -338,7 +305,7 @@ func tellNodesaboutClusterHead() {
 	}
 }
 
-
+/*Chose if node is the biggest and become chief..*/
 func clusterHeadElection(address string) bool {
 	var biggest uint32
 
