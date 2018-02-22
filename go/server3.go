@@ -15,8 +15,9 @@ import (
 	"math/rand"
 	"time"
 	"hash/fnv"
-	"bytes"
+	//"bytes"
 	"encoding/json"
+
 )
 
 
@@ -38,11 +39,11 @@ var wg sync.WaitGroup
 var clusterHead string
 
 type ObservationUnit struct {
-	addr string
-	id uint32
-	pid int
-	neighbors []string
-	location int
+	Addr string
+	Id uint32
+	Pid int
+	Neighbors []string
+	Location int
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -144,11 +145,12 @@ func startServer() {
 	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
 
 	//ou := ObservationUnit
-	ou.pid = os.Getpid()
-	ou.id = hashAddress(hostaddress)
-	ou.addr = hostaddress
-	fmt.Println("Process id is:", ou.pid)
-	fmt.Println("Node id is:", ou.id)
+	ou.Pid = os.Getpid()
+	ou.Id = hashAddress(hostaddress)
+	ou.Addr = hostaddress
+	//fmt.Println("Process id is:", ou.Pid)
+	//fmt.Println("Node id is:", ou.Id)
+	fmt.Println(ou)
 
 	tellBaseStationUnit(ou)
 
@@ -262,17 +264,30 @@ func fetchReachablehosts() []string {
 func tellBaseStationUnit(ou *ObservationUnit) {
 	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
+	
+
+	b, err := json.Marshal(ou)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("####\n")
+	fmt.Println(string(b))
+	fmt.Printf("####\n")
+//.................
 	//ou := new(ObservationUnit)
-	body := ou
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(body)
-	fmt.Printf(string(body))
-	fmt.Printf("\nWith body: %+v.\n", body)
+	//body := ou
+	/*b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(ou)
+	fmt.Println(ou)
+	fmt.Printf("####\n")
+	fmt.Printf("\nWith body: %+v.\n", ou)
 	fmt.Printf(".................\n")
-	//addressBody := strings.NewReader(nodeString)
 	fmt.Sprintf("%s", b)
 	fmt.Printf("........\n")
-	res, err := http.Post(url, "bytes", b)
+	*/
+	addressBody := strings.NewReader(string(b))
+	res, err := http.Post(url, "bytes", addressBody)
 	errorMsg("POST request to SOU failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }

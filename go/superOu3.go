@@ -20,11 +20,11 @@ var runningNodes []string
 var numNodesRunning int
 
 type ObservationUnit struct {
-	addr string
-	id uint32
-	pid int
-	neighbors []string
-	location int
+	Addr string
+	Id uint32
+	Pid int
+	Neighbors []string
+	Location int
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -115,44 +115,19 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 /*Receive from OUnodes who's running and append them to a list.*/
 func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
-	// We don't use the body, but read it anyway
-    /*decoder := json.NewDecoder(r.Body)
-    var t ObservationUnit
-    err := decoder.Decode(&t)
-    if err != nil {
+
+    var ou ObservationUnit
+
+    body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+
+	if err := json.Unmarshal(body, &ou); err != nil {
         panic(err)
     }
-    defer r.Body.Close()
-    log.Println(t)*/
+    fmt.Println(ou)
 
-	body, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        panic(err)
-    }
-    log.Println(string(body))
-    
-    decoder := json.NewDecoder(r.Body)
-    var t ObservationUnit
-    err = decoder.Decode(&t)
-    if err != nil {
-        panic(err)
-    }
-    log.Println(t)
-}
-
-
-/*Receive from OUnodes who's running and append them to a list.*/
-/*func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
-	// We don't use the body, but read it anyway
-	var addrString string
-
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
-	}
-
-	if !listContains(runningNodes, addrString) {
-		runningNodes = append(runningNodes, addrString)
+    if !listContains(runningNodes, ou.Addr) {
+		runningNodes = append(runningNodes, ou.Addr)
 		numNodesRunning += 1
 	}
 
@@ -160,7 +135,8 @@ func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
-}*/
+
+}
 
 //Remove element in a slice
 func removeElement(s []string, r string) []string {
