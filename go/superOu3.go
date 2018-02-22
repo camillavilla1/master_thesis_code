@@ -15,27 +15,41 @@ import (
 var hostname string
 var ouPort string
 
+var numOU int64
+var numCH int64
+var clusterHead string
+//var oldClusterHead string
 
 var runningNodes []string
 var numNodesRunning int
+
+var runningCH []string
+var oldRunningCH []string
 
 type ObservationUnit struct {
 	Addr string
 	Id uint32
 	Pid int
 	Neighbors []string
-	Location int
+	LocationDistance float32
 	//clusterHead string
 	//temperature int
 	//weather string
 }
 
 
+
 func main() {
 	numNodesRunning = 0
+	clusterHead = ""
 	hostname = "localhost"
 	flag.StringVar(&ouPort, "OUport", ":8080", "Super Observation Unit port (prefix with colon)")
+	numOU := flag.Int("numOU", 0, "Numbers of OUs running")
+	numCH := flag.Int("numCH", 0, "Number of Cluster Heads")
 	flag.Parse()
+
+	fmt.Println(*numOU, *numCH)
+
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/reachablehosts", reachableHostsHandler)

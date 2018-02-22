@@ -14,7 +14,7 @@ import (
 
 var taken_port []int
 
-
+//LEGGE INN FLAGS MED ANTALL OU OG ANTALL CH DET SKAL VÆRE I CLUSTERE(T/NE)
 func main() {
 
 	numThreads := runtime.NumCPU()

@@ -41,7 +41,7 @@ type ObservationUnit struct {
 	Id uint32
 	Pid int
 	Neighbors []string
-	Location int
+	LocationDistance float32
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -72,21 +72,6 @@ func main() {
 }
 
 
-func GetLocalIP() string {
-    addrs, err := net.InterfaceAddrs()
-    if err != nil {
-        return ""
-    }
-    for _, address := range addrs {
-        // check the address type and if it is not a loopback the display it
-        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-            if ipnet.IP.To4() != nil {
-                return ipnet.IP.String()
-            }
-        }
-    }
-    return ""
-}
 
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&SOUPort, "SOUport", ":0", "Super OU port (prefix with colon)")
@@ -94,6 +79,10 @@ func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&ouPort, "port", ":8081", "OU port (prefix with colon)")
 }
 
+func randomInt(min, max int) int {
+    rand.Seed(time.Now().UTC().UnixNano())
+    return rand.Intn(max - min) + min
+}
 
 func errorMsg(s string, err error) {
 	if err != nil {
@@ -144,6 +133,7 @@ func startServer() {
 	ou.Pid = os.Getpid()
 	ou.Id = hashAddress(hostaddress)
 	ou.Addr = hostaddress
+	estimateLocation(ou)
 	fmt.Println(ou)
 
 	tellBaseStationUnit(ou)
@@ -155,14 +145,7 @@ func startServer() {
 	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
 
 	go getRunningNodes()
-	if clusterHeadElection(hostaddress) {
-		fmt.Printf("I'm the CH!!")
-		//tellCH()
-		tellNodesaboutClusterHead()
-	} else {
-		//tellSuperObservationUnit()
-		fmt.Printf("NOT CH!!")
-	}
+
 
 	err := http.ListenAndServe(ouPort, nil)
 	if err != nil {
@@ -205,7 +188,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 //Ping BS reachable host to check which nodes that are (dead or) alive
 func getRunningNodes() {
-	fmt.Printf("\nGET RUNNING NODES\n")
+	fmt.Printf("\nGET RUNNING NODES FROM BS\n")
 
 	for{
 		url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
@@ -226,7 +209,19 @@ func getRunningNodes() {
 
 		printSlice(nodes)
 
-		time.Sleep(4000 * time.Millisecond)
+		for _, addr := range nodes {
+			if !listContains(startedNodes, addr) {
+				startedNodes = append(startedNodes, addr)
+			}
+		}
+
+		if clusterHeadElection(hostaddress) {
+			fmt.Printf("I'm the CH!!\n")
+		} else {
+			fmt.Printf("I'm not the CH..\n")
+		}
+
+		time.Sleep(5000 * time.Millisecond)
 	}	
 }
 
@@ -308,6 +303,7 @@ func tellNodesaboutClusterHead() {
 /*Chose if node is the biggest and become chief..*/
 func clusterHeadElection(address string) bool {
 	var biggest uint32
+	hAddress := hashAddress(address)
 
 	for i, addr := range startedNodes {
 		bs := hashAddress(addr)
@@ -323,7 +319,6 @@ func clusterHeadElection(address string) bool {
 		}
 	}
 
-	hAddress := hashAddress(address)
 	if biggest == hAddress {
 		return true
 	} else {
@@ -337,6 +332,20 @@ func hashAddress(address string) uint32 {
 	h.Write([]byte(address))
 	hashedAddress := h.Sum32()
 	return hashedAddress
+}
+
+func estimateLocation(ou *ObservationUnit) {
+	locDist := rand.Float32()
+	ou.LocationDistance = locDist
+}
+
+/**/
+func estimateThreshold() {
+
+}
+
+func estimateBattery() {
+	
 }
 
 func setMaxProcs() int {
@@ -365,6 +374,23 @@ func getLocalIp() {
 	fmt.Println(interface_addr)
 }
 
+func GetLocalIP() string {
+    addrs, err := net.InterfaceAddrs()
+    if err != nil {
+        return ""
+    }
+    for _, address := range addrs {
+        // check the address type and if it is not a loopback the display it
+        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+            if ipnet.IP.To4() != nil {
+                return ipnet.IP.String()
+            }
+        }
+    }
+    return ""
+}
+
+
 func weather_sensor() {
 	weather := make([]string, 0)
 	weather = append(weather,
@@ -380,13 +406,9 @@ func weather_sensor() {
 	//ObservationUnit.weather = rand_weather
 }
 
-func random(min, max int) int {
-    rand.Seed(time.Now().Unix())
-    return rand.Intn(max - min) + min
-}
 
 func temperature_sensor() {
-	rand_number := random(-30, 20)
+	rand_number := randomInt(-30, 20)
 	//ObservationUnit.temperature = rand_number
 	fmt.Println(rand_number)
 }
