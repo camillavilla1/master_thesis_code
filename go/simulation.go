@@ -167,12 +167,15 @@ func findNearestNeighbors(ou ObservationUnit) {
 	for _, startedOu := range runningOus {
 		fmt.Printf("Running OU are: %+v\n", runningOus)
 		fmt.Printf("-----------\n")
-		fmt.Println(ou.Xcor)
-		fmt.Printf("-----------\n")
-		
-		distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
-		fmt.Println(distance)
-
+		if !(ou.Id == startedOu.Id) {
+			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
+			fmt.Println(distance)
+			if distance < gridRadius {
+				fmt.Printf("Node(s) are in range!\n")
+			} else {
+				fmt.Printf("Node(s) are not in range..\n")
+			}
+		}
 	}
 }
 
