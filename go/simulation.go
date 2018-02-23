@@ -72,7 +72,6 @@ func main() {
 	
 
 	log.Printf("Started simulation on %s%s\n", hostname, ouPort)
-	circleAlgorithm(200, 250)
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -81,34 +80,6 @@ func main() {
 	}
 }
 
-
-func errorMsg(s string, err error) {
-	if err != nil {
-		log.Fatal(s, err)
-	}
-}
-
-
-func circumference(radius float64) float64 {
-   return 2.0 * math.Pi * radius
-}
-
-func circleAlgorithm(x float64, y float64) {
-	//xx := math.Pow(x, 2)
-	//yy := math.Pow(y, 2)
-	//r := math.Pow(gridRadius, 2)
-
-	//circle := xx + yy - r
-	//fmt.Println(circle)
-	cir := circumference(gridRadius)
-	fmt.Println(cir)
-
-	xx := math.Cos(x)
-	yy := math.Sin(y)
-
-	fmt.Println(xx, yy)
-
- }
 
 /*
 func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
@@ -182,11 +153,43 @@ func reachableHostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
-	fmt.Printf("Running OUs are: %+v\n", runningOus)
+	//fmt.Printf("Running OUs are: %+v\n", runningOus)
+
+	findNearestNeighbors(ou)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+}
+
+/*Find nearest neighbor(s) that OUnode can contact.*/
+func findNearestNeighbors(ou ObservationUnit) {
+	for _, startedOu := range runningOus {
+		fmt.Printf("Running OU are: %+v\n", runningOus)
+		fmt.Printf("-----------\n")
+		fmt.Println(ou.Xcor)
+		fmt.Printf("-----------\n")
+		
+		distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
+		fmt.Println(distance)
+
+	}
+}
+
+
+func errorMsg(s string, err error) {
+	if err != nil {
+		log.Fatal(s, err)
+	}
+}
+
+/*Find distance between the current node and the nearest neighbors*/
+func findDistance(startX float64, startY float64, stopX float64, stopY float64) float64 {
+	xx := math.Pow((startX-stopX), 2)
+	yy := math.Pow((startY-stopY), 2)
+
+	res := math.Sqrt(xx+yy)
+	return res
 }
 
 //Remove element in a slice
