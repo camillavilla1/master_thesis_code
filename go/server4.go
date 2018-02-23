@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"flag"
 	"log"
-	"net"
+	//"net"
 	"os"
 	"net/http"
 	"io"
@@ -37,12 +37,14 @@ var wg sync.WaitGroup
 var clusterHead string
 
 type ObservationUnit struct {
-	Addr string
-	Id uint32
-	Pid int
-	Neighbors []string
-	LocationDistance float32
-	BatteryTime float32
+	Addr string `json:"Addr"`
+	Id uint32 `json:"Id"`
+	Pid int `json:"Pid"`
+	Neighbors []string `json:"-"`
+	//LocationDistance float32
+	BatteryTime float32 `json:"BatteryTime"`
+	Xcor float64 `json:"Xcor"`
+	Ycor float64 `json:"Ycor"`
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -75,7 +77,7 @@ func main() {
 
 
 func addCommonFlags(flagset *flag.FlagSet) {
-	flagset.StringVar(&SOUPort, "SOUport", ":0", "Super OU port (prefix with colon)")
+	flagset.StringVar(&SOUPort, "Simport", ":0", "Simulation (prefix with colon)")
 	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
 	flagset.StringVar(&ouPort, "port", ":8081", "OU port (prefix with colon)")
 }
@@ -129,7 +131,7 @@ func startServer() {
 	hostaddress = ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
 	
-	log.Printf("Starting segment server on %s%s\n", ouHost, ouPort)
+	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
 
 	ou.Pid = os.Getpid()
 	ou.Id = hashAddress(hostaddress)
@@ -137,15 +139,12 @@ func startServer() {
 	estimateLocation(ou)
 	fmt.Println(ou)
 
-	tellBaseStationUnit(ou)
+	tellSimulationUnit(ou)
 
-	reachableHosts = fetchReachablehosts()
-
-	printSlice(startedNodes)
-
-	log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
-
-	go getRunningNodes()
+	//reachableHosts = fetchReachablehosts()
+	//printSlice(startedNodes)
+	//log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
+	//go getRunningNodes()
 
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -179,7 +178,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	tellBaseStationUnitDead()
+	tellSimulationUnitDead()
 
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide.")
@@ -250,8 +249,8 @@ func fetchReachablehosts() []string {
 }
 
 /*Tell BS that node is up and running*/
-func tellBaseStationUnit(ou *ObservationUnit) {
-	url := fmt.Sprintf("http://localhost:%s/reachablehosts", SOUPort)
+func tellSimulationUnit(ou *ObservationUnit) {
+	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
 
 	b, err := json.Marshal(ou)
@@ -271,7 +270,7 @@ func tellBaseStationUnit(ou *ObservationUnit) {
 
 
 /*Tell SOU that you're dead */
-func tellBaseStationUnitDead() {
+func tellSimulationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SOUPort)
 	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
@@ -336,8 +335,12 @@ func hashAddress(address string) uint32 {
 }
 
 func estimateLocation(ou *ObservationUnit) {
-	locDist := rand.Float32()
-	ou.LocationDistance = locDist
+	//locDist := rand.Float32()
+	//ou.LocationDistance = locDist
+	//(rand.Float64() * 500) + 5
+	rand.Seed(time.Now().UTC().UnixNano())
+	ou.Xcor = (rand.Float64() * 495) + 5
+	ou.Ycor = (rand.Float64() * 495) + 5
 }
 
 /**/
@@ -357,39 +360,6 @@ func setMaxProcs() int {
 		return maxProcs
 	}
 	return numCPU
-}
-
-func getLocalIp() {
-	/*Interfaces returns a list of the system's network interfaces. */
-	interfaces, err := net.Interfaces()
-	errorMsg("Interface: ", err)
-	fmt.Println(interfaces)
-
-	/*for _, i := range interfaces {
-		fmt.Printf("Name : %v \n", i.Name)
-		// see http://golang.org/pkg/net/#Flags
-		fmt.Println("Interface type and supports : ", i.Flags.String())
-	}*/
-
-	interface_addr, err := net.InterfaceAddrs()
-	errorMsg("Interfaceaddr: ", err)
-	fmt.Println(interface_addr)
-}
-
-func GetLocalIP() string {
-    addrs, err := net.InterfaceAddrs()
-    if err != nil {
-        return ""
-    }
-    for _, address := range addrs {
-        // check the address type and if it is not a loopback the display it
-        if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-            if ipnet.IP.To4() != nil {
-                return ipnet.IP.String()
-            }
-        }
-    }
-    return ""
 }
 
 

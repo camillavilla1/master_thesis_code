@@ -24,30 +24,40 @@ var clusterHead string
 var runningNodes []string
 var numNodesRunning int
 
+
 var runningCH []string
 var oldRunningCH []string
 
 var gridRadius float64
+var gridX int32
+var gridY int32 
 
 type ObservationUnit struct {
 	Addr string
 	Id uint32
 	Pid int
 	Neighbors []string
-	LocationDistance float32
+	//LocationDistance float32
+	Xcor float64
+	Ycor float64
 	//clusterHead string
 	//temperature int
 	//weather string
 }
 
+var runningOus []ObservationUnit
 
 
 func main() {
 	numNodesRunning = 0
 	gridRadius = 100.0
+	gridX = 500
+	gridY = 500
+
 	clusterHead = ""
 	hostname = "localhost"
-	flag.StringVar(&ouPort, "OUport", ":8080", "Super Observation Unit port (prefix with colon)")
+
+	flag.StringVar(&ouPort, "Simport", ":8080", "Simulation port (prefix with colon)")
 	numOU := flag.Int("numOU", 0, "Numbers of OUs running")
 	numCH := flag.Int("numCH", 0, "Number of Cluster Heads")
 	flag.Parse()
@@ -56,12 +66,12 @@ func main() {
 
 
 	http.HandleFunc("/", IndexHandler)
-	http.HandleFunc("/reachablehosts", reachableHostsHandler)
+	http.HandleFunc("/notifySimulation", reachableHostHandler)
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
 	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
 	
 
-	log.Printf("Started Base Station 2 on %s%s\n", hostname, ouPort)
+	log.Printf("Started simulation on %s%s\n", hostname, ouPort)
 	circleAlgorithm(200, 250)
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -154,24 +164,28 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 
 /*Receive from OUnodes who's running and append them to a list.*/
-func reachableHostsHandler(w http.ResponseWriter, r *http.Request) {
+func reachableHostHandler(w http.ResponseWriter, r *http.Request) {
 
     var ou ObservationUnit
 
     body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
 
+    //fmt.Printf(string(body))
+
 	if err := json.Unmarshal(body, &ou); err != nil {
         panic(err)
     }
-    fmt.Println(ou)
+    //fmt.Println(ou)
 
     if !listContains(runningNodes, ou.Addr) {
 		runningNodes = append(runningNodes, ou.Addr)
+		runningOus = append(runningOus, ou)
 		numNodesRunning += 1
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
+	fmt.Printf("Running OUs are: %+v\n", runningOus)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
