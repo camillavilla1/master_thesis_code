@@ -7,7 +7,7 @@ import (
 	"io"
 	"fmt"
 	"io/ioutil"
-	"strings"
+	//"strings"
 	//"sync/atomic"
 	"encoding/json"
 	"math"
@@ -68,7 +68,7 @@ func main() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/notifySimulation", reachableHostHandler)
 	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
-	http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
+	//http.HandleFunc("/fetchReachablehosts", fetchReachableHostsHandler)
 	
 
 	log.Printf("Started simulation on %s%s\n", hostname, ouPort)
@@ -88,9 +88,6 @@ func errorMsg(s string, err error) {
 	}
 }
 
-func stringify(input []string) string {
-	return strings.Join(input, ", ")
-}
 
 func circumference(radius float64) float64 {
    return 2.0 * math.Pi * radius
@@ -113,7 +110,7 @@ func circleAlgorithm(x float64, y float64) {
 
  }
 
-
+/*
 func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### FetchReachablehosts ###\n")
 	// We don't use the body, but read it anyway
@@ -127,7 +124,7 @@ func fetchReachableHostsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, host)
 	}
 }
-
+*/
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway

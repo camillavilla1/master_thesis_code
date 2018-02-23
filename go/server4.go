@@ -187,7 +187,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 
 //Ping BS reachable host to check which nodes that are (dead or) alive
-func getRunningNodes() {
+/*func getRunningNodes() {
 	fmt.Printf("\nGET RUNNING NODES FROM BS\n")
 
 	for{
@@ -203,7 +203,7 @@ func getRunningNodes() {
 		body := string(bytes)
 		resp.Body.Close()
 
-		/*TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.*/
+		//TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.
 		trimmed := strings.TrimSpace(body)
 		nodes := strings.Split(trimmed, "\n")
 
@@ -224,9 +224,9 @@ func getRunningNodes() {
 		time.Sleep(5000 * time.Millisecond)
 	}	
 }
+*/
 
-
-
+/*
 func fetchReachablehosts() []string {
 	fmt.Printf("\n### fetchReachablehosts ###\n")
 	url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
@@ -241,12 +241,13 @@ func fetchReachablehosts() []string {
 	body := string(bytes)
 	resp.Body.Close()
 
-	/*TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.*/
+	//TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.
 	trimmed := strings.TrimSpace(body)
 	nodes := strings.Split(trimmed, "\n")
 
 	return nodes
 }
+*/
 
 /*Tell BS that node is up and running*/
 func tellSimulationUnit(ou *ObservationUnit) {
