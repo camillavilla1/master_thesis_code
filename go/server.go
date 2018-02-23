@@ -75,7 +75,6 @@ func main() {
 }
 
 
-
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&SOUPort, "Simport", ":0", "Simulation (prefix with colon)")
 	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
