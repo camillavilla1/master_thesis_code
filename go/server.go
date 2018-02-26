@@ -162,8 +162,7 @@ func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Reques
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	neighbor := addrString
-	fmt.Printf(neighbor)
+	fmt.Printf(addrString)
 
 	ou.Neighbors = append(ou.Neighbors, addrString)
 	fmt.Printf("\nAdded neighbor to list..\n")
@@ -171,6 +170,8 @@ func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Reques
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
+
+	ou.contactNeighbor()
 }
 
 
@@ -234,6 +235,20 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	}	
 }
 */
+
+func (ou *ObservationUnit) contactNeighbor() {
+	for _, addr := range(ou.Neighbors) {
+		url := fmt.Sprintf("http://localhost:%s/notifySimulation", SOUPort)
+		fmt.Printf("Contacting url: %s", url)	
+
+		addressBody := strings.NewReader(ou.Addr)
+
+		_, err := http.Post(url, "string", addressBody)
+		errorMsg("Error posting to neighbor ", err)
+	}
+
+
+}
 
 
 /*Tell BS that node is up and running*/
