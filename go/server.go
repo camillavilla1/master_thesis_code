@@ -121,40 +121,39 @@ func retrieveAddresses(addr string) []string {
 
 
 func startServer() {
-	ou := new(ObservationUnit)
+	//ou := new(ObservationUnit)
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
-	http.HandleFunc("/", IndexHandler)
-	http.HandleFunc("/shutdown", shutdownHandler)
-	//http.HandleFunc("/clusterHead", clusterHeadHandler)
-	http.HandleFunc("/neighbor", neighborHandler)
-
 	hostaddress = ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
 	
 	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
+	
+	ou := &ObservationUnit{
+        Addr:           hostaddress,
+        Id:				hashAddress(hostaddress),
+        BatteryTime:	0.4,
+        Neighbors:		[]string{},
+        Xcor:			estimateLocation(),
+        Ycor:			estimateLocation(),}
 
-	//ou.Pid = os.Getpid()
-	ou.Id = hashAddress(hostaddress)
-	ou.Addr = hostaddress
-	estimateLocation(ou)
-	fmt.Println(ou)
 
-	tellSimulationUnit(ou)
+	http.HandleFunc("/", IndexHandler)
+	http.HandleFunc("/shutdown", shutdownHandler)
+	http.HandleFunc("/neighbor", ou.neighborHandler)
 
-	//reachableHosts = fetchReachablehosts()
-	//printSlice(startedNodes)
-	//log.Printf("Reachable hosts: %s", strings.Join(fetchReachablehosts()," "))
-	//go getRunningNodes()
+
+	ou.tellSimulationUnit()
 
 
 	err := http.ListenAndServe(ouPort, nil)
+	
 	if err != nil {
 		log.Panic(err)
 	}
 
 }
 
-func neighborHandler(w http.ResponseWriter, r *http.Request) {
+func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("NeighborHandler\n")
 	var addrString string
 
@@ -166,7 +165,9 @@ func neighborHandler(w http.ResponseWriter, r *http.Request) {
 	neighbor := addrString
 	fmt.Printf(neighbor)
 
-	//ou.neighbor = append(ou.neighbor, addrString)
+	ou.Neighbors = append(ou.Neighbors, addrString)
+	fmt.Printf("\nAdded neighbor to list..\n")
+	printSlice(ou.Neighbors)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -236,7 +237,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 
 /*Tell BS that node is up and running*/
-func tellSimulationUnit(ou *ObservationUnit) {
+func (ou *ObservationUnit) tellSimulationUnit() {
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SOUPort)
 	fmt.Printf("Sending to url: %s", url)
 
@@ -322,8 +323,17 @@ func hashAddress(address string) uint32 {
 	return hashedAddress
 }
 
+func estimateLocation() float64 {
+	//locDist := rand.Float32()
+	//ou.LocationDistance = locDist
+	//(rand.Float64() * 500) + 5
+	rand.Seed(time.Now().UTC().UnixNano())
+	num := (rand.Float64() * 495) + 5
 
-func estimateLocation(ou *ObservationUnit) {
+	return num
+}
+
+/*func (ou *ObservationUnit) estimateLocation() {
 	//locDist := rand.Float32()
 	//ou.LocationDistance = locDist
 	//(rand.Float64() * 500) + 5
@@ -331,7 +341,7 @@ func estimateLocation(ou *ObservationUnit) {
 	ou.Xcor = (rand.Float64() * 495) + 5
 	ou.Ycor = (rand.Float64() * 495) + 5
 }
-
+*/
 /**/
 func estimateThreshold() {
 

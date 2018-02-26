@@ -29,7 +29,7 @@ var numNodesRunning int
 var runningCH []string
 var oldRunningCH []string
 
-var gridRadius float64
+var nodeRadius float64
 var gridX int32
 var gridY int32 
 
@@ -51,7 +51,7 @@ var runningOus []ObservationUnit
 
 func main() {
 	numNodesRunning = 0
-	gridRadius = 100.0
+	nodeRadius = 100.0
 	gridX = 500
 	gridY = 500
 
@@ -172,7 +172,7 @@ func findNearestNeighbors(ou ObservationUnit) {
 		if !(ou.Id == startedOu.Id) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 			fmt.Println(distance)
-			if distance < gridRadius {
+			if distance < nodeRadius {
 				fmt.Printf("Node are in range!\n")
 				/*Need to sleep, or else it get connection refused.*/
 				time.Sleep(1000 * time.Millisecond)
