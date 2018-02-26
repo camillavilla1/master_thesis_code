@@ -140,6 +140,8 @@ func startServer() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
 	http.HandleFunc("/neighbor", ou.neighborHandler)
+	http.HandleFunc("/newNeighbor", ou.newNeighborHandler)
+
 
 
 	ou.tellSimulationUnit()
@@ -172,6 +174,19 @@ func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Reques
 	r.Body.Close()
 
 	ou.contactNeighbor()
+}
+
+func (ou *ObservationUnit) newNeighborHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("NeighborHandler\n")
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	fmt.Printf(addrString)
+	
 }
 
 
@@ -246,8 +261,6 @@ func (ou *ObservationUnit) contactNeighbor() {
 		_, err := http.Post(url, "string", addressBody)
 		errorMsg("Error posting to neighbor ", err)
 	}
-
-
 }
 
 
