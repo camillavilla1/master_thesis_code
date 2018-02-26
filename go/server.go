@@ -155,7 +155,7 @@ func startServer() {
 }
 
 func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nneighbourHandler\n")
+	fmt.Printf("\nneighbourHandler2\n")
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -185,6 +185,7 @@ func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Requ
 }
 
 func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nneighbourHandler\n")
 	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -199,13 +200,19 @@ func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Reque
     io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-    fmt.Printf("\n------------")    
-    fmt.Println(tmpNeighbour)
-    fmt.Printf("------------\n")
-
     ou.Neighbours = tmpNeighbour
 
     fmt.Printf("%+v\n", ou)
+
+	for _, addr := range(ou.Neighbours) {
+		fmt.Printf(string(addr))
+		//ou.Neighbour = append(ou.Neighbour, addr)
+		fmt.Printf("\nAdded neighbour to list..\n")
+		printSlice(ou.Neighbours)
+
+		//time.Sleep(1000 * time.Millisecond)
+	}
+	ou.contactNeighbour()
 }
 
 
@@ -256,6 +263,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 /*Contant neighbour with OUs address as body to tell that it wants to connect if possible. */
 func (ou *ObservationUnit) contactNeighbour() {
+	fmt.Printf("\nContacting neighbours..\n")
 	for _, neighbour := range(ou.Neighbours) {
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		fmt.Printf("\nContacting neighbour url: %s ", url)	

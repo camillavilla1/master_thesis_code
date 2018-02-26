@@ -155,7 +155,7 @@ func findNearestneighbours(ou ObservationUnit) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 			//fmt.Println(distance)
 			if distance < nodeRadius {
-				fmt.Printf("Node are in range!\n")
+				fmt.Printf("Node is in range!\n")
 				/*Need to sleep, or else it get connection refused.*/
 				//time.Sleep(1000 * time.Millisecond)
 				//tellNodeAboutNeighbour(ou, startedOu)
@@ -165,7 +165,6 @@ func findNearestneighbours(ou ObservationUnit) {
 				//time.Sleep(1000 * time.Millisecond)
 				//tellNodeAboutNeighbour(ou, startedOu)
 				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
-				fmt.Printf("Should have appended to OUs neighbours list...\n\n")
 			}
 		} else {
 			fmt.Printf("Node is the same as in list..\n")
@@ -175,8 +174,7 @@ func findNearestneighbours(ou ObservationUnit) {
 	time.Sleep(1000 * time.Millisecond)
 	if len(ou.Neighbours) >= 1 {
 		fmt.Println("hello", len(ou.Neighbours))
-		go tellNodeAboutNeighbour(ou)
-		
+		go tellNodeAboutNeighbour(ou)	
 	}
 }
 
@@ -189,9 +187,6 @@ func tellNodeAboutNeighbour(ou ObservationUnit) {
 	url := fmt.Sprintf("http://%s/neighbour", ou.Addr)
 	fmt.Printf("Sending neighbour to url: %s\n", url)
 
-	//neighbours := stringify(ou.Neighbours)
-	//fmt.Printf(neighbours)
-
 	b, err := json.Marshal(ou.Neighbours)
 	if err != nil {
 		fmt.Println(err)
@@ -200,24 +195,8 @@ func tellNodeAboutNeighbour(ou ObservationUnit) {
 	fmt.Printf("\nwith data: ")
 	fmt.Println(string(b))
 
-	//addressBody := strings.NewReader(ou)
 	addressBody := strings.NewReader(string(b))
 
-	//_, err := http.Post(url, "string", addressBody)
-	//errorMsg("Error posting to OU ", err)
-
-
-	/*b, err := json.Marshal(ou)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("\nwith data: ")
-	fmt.Println(string(b))
-
-	//addressBody := strings.NewReader(string(b))
-	addressBody2 := bytes.NewReader(b)
-	*/
 	res, err := http.Post(url, "string", addressBody)
 	errorMsg("POST request to OU failed: ", err)
 	io.Copy(os.Stdout, res.Body)
