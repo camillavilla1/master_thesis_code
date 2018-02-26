@@ -16,7 +16,6 @@ import (
 	"time"
 	"hash/fnv"
 	"encoding/json"
-	"reflect"
 )
 
 
@@ -186,32 +185,27 @@ func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Requ
 }
 
 func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Request) {
-	var tmpOU ObservationUnit
-
-
+	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
+  
+    fmt.Printf(string(body))  
 
-    fmt.Printf("\nBODY------------")    
-    fmt.Printf(string(body))
-    fmt.Println(reflect.TypeOf(body))
-    fmt.Printf("------------\n")    
-
-	if err := json.Unmarshal([]byte(body), &tmpOU); err != nil {
+	if err := json.Unmarshal(body, &tmpNeighbour); err != nil {
         panic(err)
     }
-
-    fmt.Printf("\n------------")    
-    fmt.Println(tmpOU)
-    fmt.Printf("%+v\n", tmpOU)
-    fmt.Printf("------------\n")
-
-    fmt.Printf("%+v\n", ou)
 
     io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+    fmt.Printf("\n------------")    
+    fmt.Println(tmpNeighbour)
+    fmt.Printf("------------\n")
+
+    ou.Neighbours = tmpNeighbour
+
+    fmt.Printf("%+v\n", ou)
 }
 
 

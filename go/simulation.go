@@ -13,7 +13,7 @@ import (
 	"math"
 	"time"
 	"os"
-	"bytes"
+	//"bytes"
 )
 
 var hostname string
@@ -192,13 +192,22 @@ func tellNodeAboutNeighbour(ou ObservationUnit) {
 	//neighbours := stringify(ou.Neighbours)
 	//fmt.Printf(neighbours)
 
+	b, err := json.Marshal(ou.Neighbours)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("\nwith data: ")
+	fmt.Println(string(b))
+
 	//addressBody := strings.NewReader(ou)
+	addressBody := strings.NewReader(string(b))
 
 	//_, err := http.Post(url, "string", addressBody)
 	//errorMsg("Error posting to OU ", err)
 
 
-	b, err := json.Marshal(ou)
+	/*b, err := json.Marshal(ou)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -208,8 +217,8 @@ func tellNodeAboutNeighbour(ou ObservationUnit) {
 
 	//addressBody := strings.NewReader(string(b))
 	addressBody2 := bytes.NewReader(b)
-
-	res, err := http.Post(url, "string", addressBody2)
+	*/
+	res, err := http.Post(url, "string", addressBody)
 	errorMsg("POST request to OU failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
