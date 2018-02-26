@@ -16,6 +16,7 @@ import (
 	"time"
 	"hash/fnv"
 	"encoding/json"
+	"reflect"
 )
 
 
@@ -40,7 +41,7 @@ type ObservationUnit struct {
 	Addr string `json:"Addr"`
 	Id uint32 `json:"Id"`
 	//Pid int `json:"Pid"`
-	Neighbors []string `json:"-"`
+	Neighbours []string `json:"-"`
 	//LocationDistance float32
 	BatteryTime float32 `json:"BatteryTime"`
 	Xcor float64 `json:"Xcor"`
@@ -132,16 +133,15 @@ func startServer() {
         Addr:			hostaddress,
         Id:				hashAddress(hostaddress),
         BatteryTime:	0.4,
-        Neighbors:		[]string{},
+        Neighbours:		[]string{},
         Xcor:			estimateLocation(),
         Ycor:			estimateLocation(),}
 
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	http.HandleFunc("/neighbor", ou.neighborHandler)
-	http.HandleFunc("/newNeighbor", ou.newNeighborHandler)
-
+	http.HandleFunc("/neighbour", ou.neighbourHandler)
+	http.HandleFunc("/newNeighbour", ou.newNeighbourHandler)
 
 
 	ou.tellSimulationUnit()
@@ -155,8 +155,70 @@ func startServer() {
 
 }
 
-func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("NeighborHandler\n")
+func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nneighbourHandler\n")
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	fmt.Printf("Address string is: ")
+	fmt.Printf(addrString)
+	
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	for _, addr := range(addrString) {
+		if !listContains(ou.Neighbours, addrString) {
+			fmt.Printf(string(addr))
+			//ou.Neighbour = append(ou.Neighbour, addr)
+			fmt.Printf("\nAdded neighbour to list..\n")
+			printSlice(ou.Neighbours)
+
+			//time.Sleep(1000 * time.Millisecond)
+			ou.contactNeighbour()
+		}
+		
+	}
+
+}
+
+func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Request) {
+	var tmpOU ObservationUnit
+
+
+
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+
+    fmt.Printf("\nBODY------------")    
+    fmt.Printf(string(body))
+    fmt.Println(reflect.TypeOf(body))
+    fmt.Printf("------------\n")    
+
+	if err := json.Unmarshal([]byte(body), &tmpOU); err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("\n------------")    
+    fmt.Println(tmpOU)
+    fmt.Printf("%+v\n", tmpOU)
+    fmt.Printf("------------\n")
+
+    fmt.Printf("%+v\n", ou)
+
+    io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+}
+
+
+
+/*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour. Need to send this to the leader/CH in the cluster.*/
+func (ou *ObservationUnit) newNeighbourHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nNew neighbour Handler\n")
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -165,28 +227,15 @@ func (ou *ObservationUnit) neighborHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	fmt.Printf(addrString)
-
-	ou.Neighbors = append(ou.Neighbors, addrString)
-	fmt.Printf("\nAdded neighbor to list..\n")
-	printSlice(ou.Neighbors)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	ou.contactNeighbor()
+	ou.getInfoToCH()
 }
 
-func (ou *ObservationUnit) newNeighborHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("NeighborHandler\n")
-	var addrString string
-
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
-	}
-
-	fmt.Printf(addrString)
-	
+func (ou *ObservationUnit) getInfoToCH() {
+	fmt.Printf("\nGet info about new OU to CH!\n")
 }
 
 
@@ -211,55 +260,17 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-//Ping BS reachable host to check which nodes that are (dead or) alive
-/*func getRunningNodes() {
-	fmt.Printf("\nGET RUNNING NODES FROM BS\n")
+/*Contant neighbour with OUs address as body to tell that it wants to connect if possible. */
+func (ou *ObservationUnit) contactNeighbour() {
+	for _, neighbour := range(ou.Neighbours) {
+		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
+		fmt.Printf("\nContacting neighbour url: %s ", url)	
 
-	for{
-		url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
-		resp, err := http.Get(url)
-
-		if err != nil {
-			errorMsg("ERROR: ", err)
-		}
-
-		var bytes []byte
-		bytes, err = ioutil.ReadAll(resp.Body)
-		body := string(bytes)
-		resp.Body.Close()
-
-		//TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.
-		trimmed := strings.TrimSpace(body)
-		nodes := strings.Split(trimmed, "\n")
-
-		printSlice(nodes)
-
-		for _, addr := range nodes {
-			if !listContains(startedNodes, addr) {
-				startedNodes = append(startedNodes, addr)
-			}
-		}
-
-		if clusterHeadElection(hostaddress) {
-			fmt.Printf("I'm the CH!!\n")
-		} else {
-			fmt.Printf("I'm not the CH..\n")
-		}
-
-		time.Sleep(5000 * time.Millisecond)
-	}	
-}
-*/
-
-func (ou *ObservationUnit) contactNeighbor() {
-	for _, addr := range(ou.Neighbors) {
-		url := fmt.Sprintf("http://localhost:%s/notifySimulation", SOUPort)
-		fmt.Printf("Contacting url: %s", url)	
-
+		fmt.Printf("with body: %s", ou.Addr)
 		addressBody := strings.NewReader(ou.Addr)
 
 		_, err := http.Post(url, "string", addressBody)
-		errorMsg("Error posting to neighbor ", err)
+		errorMsg("Error posting to neighbour ", err)
 	}
 }
 
@@ -352,9 +363,6 @@ func hashAddress(address string) uint32 {
 }
 
 func estimateLocation() float64 {
-	//locDist := rand.Float32()
-	//ou.LocationDistance = locDist
-	//(rand.Float64() * 500) + 5
 	rand.Seed(time.Now().UTC().UnixNano())
 	num := (rand.Float64() * 495) + 5
 
