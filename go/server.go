@@ -129,7 +129,7 @@ func startServer() {
 	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
 	
 	ou := &ObservationUnit{
-        Addr:           hostaddress,
+        Addr:			hostaddress,
         Id:				hashAddress(hostaddress),
         BatteryTime:	0.4,
         Neighbors:		[]string{},
