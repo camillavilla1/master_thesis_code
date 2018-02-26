@@ -7,10 +7,11 @@ import (
 	"io"
 	"fmt"
 	"io/ioutil"
-	//"strings"
+	"strings"
 	//"sync/atomic"
 	"encoding/json"
 	"math"
+	"time"
 )
 
 var hostname string
@@ -35,7 +36,7 @@ var gridY int32
 type ObservationUnit struct {
 	Addr string
 	Id uint32
-	Pid int
+	//Pid int
 	Neighbors []string
 	//LocationDistance float32
 	Xcor float64
@@ -155,11 +156,12 @@ func reachableHostHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Number of nodes running: ", numNodesRunning)
 	//fmt.Printf("Running OUs are: %+v\n", runningOus)
 
-	findNearestNeighbors(ou)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+	go findNearestNeighbors(ou)
+	fmt.Printf("\n")
 }
 
 /*Find nearest neighbor(s) that OUnode can contact.*/
@@ -171,12 +173,32 @@ func findNearestNeighbors(ou ObservationUnit) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 			fmt.Println(distance)
 			if distance < gridRadius {
-				fmt.Printf("Node(s) are in range!\n")
+				fmt.Printf("Node are in range!\n")
+				/*Need to sleep, or else it get connection refused.*/
+				time.Sleep(1000 * time.Millisecond)
+				tellNodeAboutNeighbour(ou, startedOu)
 			} else {
-				fmt.Printf("Node(s) are not in range..\n")
+				fmt.Printf("Node is not in range..\n")
+				time.Sleep(1000 * time.Millisecond)
+				tellNodeAboutNeighbour(ou, startedOu)
 			}
+		} else {
+			fmt.Printf("Node is the same as in list..\n")
 		}
 	}
+}
+
+func tellNodeAboutNeighbour(ou ObservationUnit, neighbor ObservationUnit) {
+	url := fmt.Sprintf("http://%s/neighbor", ou.Addr)
+	fmt.Printf("Sending neighbor to url: %s", url)
+
+	addressBody := strings.NewReader(neighbor.Addr)
+
+	_, err := http.Post(url, "string", addressBody)
+	errorMsg("Error posting to OU ", err)
+
+	
+	
 }
 
 

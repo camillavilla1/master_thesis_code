@@ -39,7 +39,7 @@ var clusterHead string
 type ObservationUnit struct {
 	Addr string `json:"Addr"`
 	Id uint32 `json:"Id"`
-	Pid int `json:"Pid"`
+	//Pid int `json:"Pid"`
 	Neighbors []string `json:"-"`
 	//LocationDistance float32
 	BatteryTime float32 `json:"BatteryTime"`
@@ -125,14 +125,15 @@ func startServer() {
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	http.HandleFunc("/clusterHead", clusterHeadHandler)
+	//http.HandleFunc("/clusterHead", clusterHeadHandler)
+	http.HandleFunc("/neighbor", neighborHandler)
 
 	hostaddress = ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
 	
 	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
 
-	ou.Pid = os.Getpid()
+	//ou.Pid = os.Getpid()
 	ou.Id = hashAddress(hostaddress)
 	ou.Addr = hostaddress
 	estimateLocation(ou)
@@ -153,7 +154,8 @@ func startServer() {
 
 }
 
-func clusterHeadHandler(w http.ResponseWriter, r *http.Request) {
+func neighborHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("NeighborHandler\n")
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -161,8 +163,15 @@ func clusterHeadHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	clusterHead = addrString
+	neighbor := addrString
+	fmt.Printf(neighbor)
+
+	//ou.neighbor = append(ou.neighbor, addrString)
+
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
 }
+
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Don't use the request body. But we should consume it anyway.
@@ -225,28 +234,6 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 }
 */
 
-/*
-func fetchReachablehosts() []string {
-	fmt.Printf("\n### fetchReachablehosts ###\n")
-	url := fmt.Sprintf("http://localhost:%s/fetchReachablehosts", SOUPort)
-	resp, err := http.Get(url)
-
-	if err != nil {
-		return []string{}
-	}
-
-	var bytes []byte
-	bytes, err = ioutil.ReadAll(resp.Body)
-	body := string(bytes)
-	resp.Body.Close()
-
-	//TrimSpace returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.
-	trimmed := strings.TrimSpace(body)
-	nodes := strings.Split(trimmed, "\n")
-
-	return nodes
-}
-*/
 
 /*Tell BS that node is up and running*/
 func tellSimulationUnit(ou *ObservationUnit) {
@@ -283,13 +270,13 @@ func tellSimulationUnitDead() {
 	errorMsg("Dead Post address: ", err)
 }
 
-func tellCH() {
+/*func tellCH() {
 	url := fmt.Sprintf("http://%s%s/chief", biggestAddress, ouPort)	
 	message := "You're the CH!"
 	addressBody := strings.NewReader(message)
 	http.Post(url, "string", addressBody)
-}
-
+}*/
+/*
 func tellNodesaboutClusterHead() {
 	for _, addr := range startedNodes {
 		url := fmt.Sprintf("http://%s/clusterHead", addr)
@@ -298,10 +285,10 @@ func tellNodesaboutClusterHead() {
 		addressBody := strings.NewReader(message)
 		http.Post(url, "string", addressBody)
 	}
-}
+}*/
 
 /*Chose if node is the biggest and become chief..*/
-func clusterHeadElection(address string) bool {
+/*func clusterHeadElection(address string) bool {
 	var biggest uint32
 	hAddress := hashAddress(address)
 
@@ -324,7 +311,8 @@ func clusterHeadElection(address string) bool {
 	} else {
 		return false
 	}
-}
+}*/
+
 
 //Hash address to be ID of node
 func hashAddress(address string) uint32 {
@@ -333,6 +321,7 @@ func hashAddress(address string) uint32 {
 	hashedAddress := h.Sum32()
 	return hashedAddress
 }
+
 
 func estimateLocation(ou *ObservationUnit) {
 	//locDist := rand.Float32()
