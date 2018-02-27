@@ -38,7 +38,7 @@ var gridY int32
 type ObservationUnit struct {
 	Addr string
 	Id uint32
-	//Pid int
+	Pid int
 	Neighbours []string
 	//LocationDistance float32
 	Xcor float64

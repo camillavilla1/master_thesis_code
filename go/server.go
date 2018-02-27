@@ -36,10 +36,10 @@ var clusterHead string
 type ObservationUnit struct {
 	Addr string `json:"Addr"`
 	Id uint32 `json:"Id"`
-	//Pid int `json:"Pid"`
+	Pid int `json:"Pid"`
 	Neighbours []string `json:"-"`
 	//LocationDistance float32
-	BatteryTime float32 `json:"BatteryTime"`
+	BatteryTime float64 `json:"BatteryTime"`
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
 	//clusterHead string 
@@ -129,7 +129,8 @@ func startServer() {
 	ou := &ObservationUnit{
         Addr:			hostaddress,
         Id:				hashAddress(hostaddress),
-        BatteryTime:	0.4,
+        Pid:			os.Getpid(),
+        BatteryTime:	randEstimateBattery(),
         Neighbours:		[]string{},
         Xcor:			estimateLocation(),
         Ycor:			estimateLocation(),}
@@ -383,10 +384,17 @@ func estimateThreshold() {
 
 }
 
-func estimateBattery() {
+func randEstimateBattery() float64 {
 	//float32
-	
+	rand.Seed(time.Now().UTC().UnixNano())
+	num := rand.Float64()
+
+	return num
 }
+
+/*func estimateBattery() {
+	start := 3000
+}*/
 
 func setMaxProcs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
@@ -407,7 +415,7 @@ func weather_sensor() {
     "Windy",
     "Snow")
 
-	rand.Seed(time.Now().Unix()) 
+	rand.Seed(time.Now().UTC().UnixNano())
     rand_weather := weather[rand.Intn(len(weather))]
 	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
 	//ObservationUnit.weather = rand_weather
