@@ -185,7 +185,7 @@ func tellOuNoNeighbours(ou ObservationUnit) {
 
 
 	res, err := http.Post(url, "string", addressBody)
-	errorMsg("POST request to OU failed: ", err)
+	errorMsg("Post request telling OU about no neighbours failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
 
@@ -205,7 +205,7 @@ func tellOuAboutNeighbour(ou ObservationUnit) {
 	addressBody := strings.NewReader(string(b))
 
 	res, err := http.Post(url, "string", addressBody)
-	errorMsg("POST request to OU failed: ", err)
+	errorMsg("Post request telling OU about neighbours failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
 

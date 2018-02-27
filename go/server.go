@@ -135,13 +135,13 @@ func (ou *ObservationUnit) NeighboursHandler(w http.ResponseWriter, r *http.Requ
 
     fmt.Printf("%+v\n", ou)
 
+	time.Sleep(1000 * time.Millisecond)
 	for _, addr := range(ou.Neighbours) {
 		fmt.Printf(string(addr))
 		//ou.Neighbour = append(ou.Neighbour, addr)
 		fmt.Printf("\nAdded neighbour to list..\n")
 		printSlice(ou.Neighbours)
 
-		//time.Sleep(1000 * time.Millisecond)
 	}
 	ou.contactNeighbour()
 }

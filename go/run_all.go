@@ -68,6 +68,8 @@ func main() {
 			fmt.Printf("Port is taken... Try again or something.\n")
 		}
 	}
+	/*Need this so the program doesn't quit before the OU are done..*/
+	time.Sleep(5000 * time.Millisecond)
 	printSlice(taken_port)
 }
 
