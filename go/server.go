@@ -153,6 +153,7 @@ func startServer() {
 
 }
 
+/*
 func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nneighbourHandler2\n")
 	var addrString string
@@ -181,8 +182,9 @@ func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Requ
 		
 	}
 
-}
+}*/
 
+/*Receive neighbours from simulation. Contact neighbours to say "Hi, Here I am"*/
 func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nneighbourHandler\n")
 	var tmpNeighbour []string
@@ -329,31 +331,39 @@ func tellNodesaboutClusterHead() {
 }*/
 
 /*Chose if node is the biggest and become chief..*/
-/*func clusterHeadElection(address string) bool {
+func (ou *ObservationUnit) biggestId() bool {
 	var biggest uint32
-	hAddress := hashAddress(address)
 
-	for i, addr := range startedNodes {
-		bs := hashAddress(addr)
+	for i, neighbour := range(ou.Neighbours) {
+		hAddress := hashAddress(neighbour)
 
 		if i == 0 {
-			biggest = bs
-			biggestAddress = addr
+			biggest = hAddress
+			biggestAddress = neighbour
 		} else {
-			if bs > biggest {
-				biggest = bs
-				biggestAddress = addr
+			if hAddress > biggest {
+				biggest = hAddress
+				biggestAddress = neighbour
 			}
 		}
 	}
 
-	if biggest == hAddress {
+	if biggest == ou.Id {
 		return true
 	} else {
 		return false
 	}
-}*/
+}
 
+func (ou *ObservationUnit) clusterHeadElection() {
+	fmt.Printf("\n### Cluster Head Election ###\n")
+	if ou.biggestId() {
+		fmt.Printf("OU has biggest ID\n")
+	} else {
+		fmt.Printf("OU is not biggest ID\n")
+	}
+
+}
 
 //Hash address to be ID of node
 func hashAddress(address string) uint32 {
