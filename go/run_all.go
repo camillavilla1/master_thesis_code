@@ -26,6 +26,8 @@ func main() {
 	errorMsg("Str to int: ", err)
 
 	port := 8081
+	port2 := random(29170, 29998)
+	fmt.Println("Random port number: ", port2)
 	for i := 0; i < numServers2; i++ {
 		//fmt.Println(i)
 
@@ -88,7 +90,7 @@ func sliceContains(s []int, e int) bool {
 
 
 func random(min, max int) int {
-    rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UTC().UnixNano())
     return rand.Intn(max - min) + min
 }
 

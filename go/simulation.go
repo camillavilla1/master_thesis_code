@@ -33,7 +33,6 @@ type ObservationUnit struct {
 	Id uint32
 	Pid int
 	Neighbours []string
-	//LocationDistance float32
 	Xcor float64
 	Ycor float64
 	//clusterHead string
@@ -143,15 +142,15 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 func findNearestneighbours(ou ObservationUnit) {
 	fmt.Printf("\n### Find Nearest Neighbours!!###\n")
 	for _, startedOu := range runningOus {
-		fmt.Printf("Running OU are: %+v\n", runningOus)
+		//fmt.Printf("Running OU are: %+v\n", runningOus)
 		if !(ou.Id == startedOu.Id) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 
 			if distance < nodeRadius {
-				fmt.Printf("Node is in range!\n")
+				fmt.Printf("\n--- OU IS IN RANGE!! ---\n")
 				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
 			} else {
-				fmt.Printf("Node is not in range..\n")
+				fmt.Printf("OU is NOT in range..\n")
 				/*Should tell node that no OU is available..
 				noNeighbours(ou)*/
 				//ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
@@ -162,7 +161,7 @@ func findNearestneighbours(ou ObservationUnit) {
 			//go tellOuNoNeighbours(ou)
 		}
 	}
-	printSlice(ou.Neighbours)
+	//printSlice(ou.Neighbours)
 
 	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.Neighbours) >= 1 {
@@ -171,6 +170,7 @@ func findNearestneighbours(ou ObservationUnit) {
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutNeighbour(ou)	
 	} else {
+		time.Sleep(1000 * time.Millisecond)
 		go tellOuNoNeighbours(ou)
 	}
 }
