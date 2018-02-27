@@ -148,22 +148,19 @@ func reachableHostHandler(w http.ResponseWriter, r *http.Request) {
 
 /*Find nearest neighbour(s) that OUnode can contact.*/
 func findNearestneighbours(ou ObservationUnit) {
+	fmt.Printf("\n### Find Nearest Neighbours!!###\n")
 	for _, startedOu := range runningOus {
 		fmt.Printf("Running OU are: %+v\n", runningOus)
-		fmt.Printf("-----------\n")
 		if !(ou.Id == startedOu.Id) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
-			//fmt.Println(distance)
+
 			if distance < nodeRadius {
 				fmt.Printf("Node is in range!\n")
-				/*Need to sleep, or else it get connection refused.*/
-				//time.Sleep(1000 * time.Millisecond)
-				//tellNodeAboutNeighbour(ou, startedOu)
 				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
 			} else {
 				fmt.Printf("Node is not in range..\n")
-				//time.Sleep(1000 * time.Millisecond)
-				//tellNodeAboutNeighbour(ou, startedOu)
+				/*Should tell node that no OU is available..
+				noNeighbours(ou)*/
 				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
 			}
 		} else {
@@ -171,16 +168,14 @@ func findNearestneighbours(ou ObservationUnit) {
 		}
 	}
 	printSlice(ou.Neighbours)
-	time.Sleep(1000 * time.Millisecond)
+	/*Need to sleep, or else it get connection refused.*/
 	if len(ou.Neighbours) >= 1 {
-		fmt.Println("hello", len(ou.Neighbours))
+		fmt.Println("# neighbours: ", len(ou.Neighbours))
+		time.Sleep(1000 * time.Millisecond)
 		go tellNodeAboutNeighbour(ou)	
 	}
 }
 
-func stringify(input []string) string {
-	return strings.Join(input, ",")
-}
 
 /*Tell OU about other OUs that are reachable for this specific OU.*/
 func tellNodeAboutNeighbour(ou ObservationUnit) {
@@ -209,7 +204,7 @@ func errorMsg(s string, err error) {
 	}
 }
 
-/*Find distance between the current node and the nearest neighbours by its "GPS" coordinates*/
+/*Find distance between the current node and the nearest neighbours by its "GPS" coordinates - middle of the radio-range for the OU.*/
 func findDistance(startX float64, startY float64, stopX float64, stopY float64) float64 {
 	xx := math.Pow((startX-stopX), 2)
 	yy := math.Pow((startY-stopY), 2)

@@ -22,15 +22,12 @@ import (
 var ouPort string
 var ouHost string
 
-var SOUPort string
-
-var hostaddress string
-
+var SimPort string
 
 var reachableHosts []string
-var startedNodes []string
+var startedNodes []string //can be removed..
 
-var biggestAddress string
+var biggestAddress string //can be removed?
 
 var wg sync.WaitGroup
 
@@ -45,7 +42,9 @@ type ObservationUnit struct {
 	BatteryTime float32 `json:"BatteryTime"`
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
-	//clusterHead string
+	//clusterHead string 
+	//isClusterHead bool
+	//prevClusterHead string
 	//temperature int
 	//weather string
 }
@@ -76,7 +75,7 @@ func main() {
 
 
 func addCommonFlags(flagset *flag.FlagSet) {
-	flagset.StringVar(&SOUPort, "Simport", ":0", "Simulation (prefix with colon)")
+	flagset.StringVar(&SimPort, "Simport", ":0", "Simulation (prefix with colon)")
 	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
 	flagset.StringVar(&ouPort, "port", ":8081", "OU port (prefix with colon)")
 }
@@ -123,7 +122,7 @@ func retrieveAddresses(addr string) []string {
 func startServer() {
 	//ou := new(ObservationUnit)
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
-	hostaddress = ouHost + ouPort
+	hostaddress := ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
 	
 	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
@@ -279,7 +278,7 @@ func (ou *ObservationUnit) contactNeighbour() {
 
 /*Tell BS that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
-	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SOUPort)
+	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
 	fmt.Printf("Sending to url: %s", url)
 
 	b, err := json.Marshal(ou)
@@ -300,7 +299,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 
 /*Tell SOU that you're dead */
 func tellSimulationUnitDead() {
-	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SOUPort)
+	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SimPort)
 	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
 	nodeString := ouHost + ouPort
