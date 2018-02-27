@@ -115,8 +115,6 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
     body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
 
-    //fmt.Printf(string(body))
-
 	if err := json.Unmarshal(body, &ou); err != nil {
         panic(err)
     }
@@ -147,29 +145,30 @@ func findNearestneighbours(ou ObservationUnit) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 
 			if distance < nodeRadius {
-				fmt.Printf("\n--- OU IS IN RANGE!! ---\n")
+				fmt.Printf("--- OU IS IN RANGE!! ---\n")
 				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
-			} else {
-				fmt.Printf("OU is NOT in range..\n")
+			} //else {
+			//	fmt.Printf("OU is NOT in range..\n")
 				/*Should tell node that no OU is available..
 				noNeighbours(ou)*/
 				//ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
 				//go tellOuNoNeighbours(ou)
-			}
-		} else {
+			//}
+		} /*else {
 			fmt.Printf("Node is the same as in list..\n")
 			//go tellOuNoNeighbours(ou)
-		}
+		}*/
 	}
-	//printSlice(ou.Neighbours)
 
 	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.Neighbours) >= 1 {
-		fmt.Println("# neighbours: ", len(ou.Neighbours))
+		fmt.Println("# OU neighbours: ", len(ou.Neighbours))
+		//printSlice(ou.Neighbours)
 		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutNeighbour(ou)	
 	} else {
+		fmt.Printf("OU have no neighbours..\n")
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuNoNeighbours(ou)
 	}
@@ -199,7 +198,7 @@ func tellOuAboutNeighbour(ou ObservationUnit) {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("\nwith data: ")
+	fmt.Printf("with data: ")
 	fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))

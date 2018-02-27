@@ -162,8 +162,7 @@ func (ou *ObservationUnit) NoNeighboursHandler(w http.ResponseWriter, r *http.Re
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	ou.isClusterHead = true
-	ou.clusterHead = ou.Addr
+	ou.clusterHeadElection()
 }
 
 
@@ -185,11 +184,6 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 	ou.clusterHeadElection()
 	ou.getInfoToCH()
-}
-
-
-func (ou *ObservationUnit) getInfoToCH() {
-	fmt.Printf("\nGet info about new OU to CH!\n")
 }
 
 
@@ -267,22 +261,9 @@ func tellSimulationUnitDead() {
 }
 
 
-/*func tellCH() {
-	url := fmt.Sprintf("http://%s%s/chief", biggestAddress, ouPort)	
-	message := "You're the CH!"
-	addressBody := strings.NewReader(message)
-	http.Post(url, "string", addressBody)
-}*/
-/*
-func tellNodesaboutClusterHead() {
-	for _, addr := range startedNodes {
-		url := fmt.Sprintf("http://%s/clusterHead", addr)
-		fmt.Printf("\nTelling node %s about who is CH.", url)
-		message := biggestAddress
-		addressBody := strings.NewReader(message)
-		http.Post(url, "string", addressBody)
-	}
-}*/
+func (ou *ObservationUnit) getInfoToCH() {
+	fmt.Printf("\nGet info about new OU to CH!\n")
+}
 
 
 /*Chose if node is the biggest and become chief..*/
@@ -316,13 +297,14 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	if len(ou.Neighbours) == 0 {
 		fmt.Printf("No neighbours.. Be your own CH!\n")
 		ou.isClusterHead = true
-	}
-	if ou.biggestId() {
-		fmt.Printf("OU has biggest ID\n")
+		ou.clusterHead = ou.Addr
 	} else {
-		fmt.Printf("OU is not biggest ID\n")
+		if ou.biggestId() {
+			fmt.Printf("OU has biggest ID\n")
+		} else {
+			fmt.Printf("OU is not biggest ID\n")
+		}
 	}
-
 }
 
 
@@ -343,17 +325,7 @@ func estimateLocation() float64 {
 }
 
 
-/*func (ou *ObservationUnit) estimateLocation() {
-	//locDist := rand.Float32()
-	//ou.LocationDistance = locDist
-	//(rand.Float64() * 500) + 5
-	rand.Seed(time.Now().UTC().UnixNano())
-	ou.Xcor = (rand.Float64() * 495) + 5
-	ou.Ycor = (rand.Float64() * 495) + 5
-}
-*/
 
-/**/
 func estimateThreshold() {
 
 }
