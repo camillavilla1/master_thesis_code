@@ -120,7 +120,6 @@ func retrieveAddresses(addr string) []string {
 
 
 func startServer() {
-	//ou := new(ObservationUnit)
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	hostaddress := ouHost + ouPort
 	startedNodes = append(startedNodes, hostaddress)
