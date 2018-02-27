@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
-	//"sync/atomic"
 	"encoding/json"
 	"math"
 	"time"
 	"os"
-	//"bytes"
 )
 
 var hostname string
@@ -21,15 +19,10 @@ var ouPort string
 
 var numOU int64
 var numCH int64
-var clusterHead string
-//var oldClusterHead string
+
 
 var runningNodes []string
 var numNodesRunning int
-
-
-var runningCH []string
-var oldRunningCH []string
 
 var nodeRadius float64
 var gridX int32
@@ -57,7 +50,6 @@ func main() {
 	gridX = 500
 	gridY = 500
 
-	clusterHead = ""
 	hostname = "localhost"
 
 	flag.StringVar(&ouPort, "Simport", ":8080", "Simulation port (prefix with colon)")
@@ -69,8 +61,8 @@ func main() {
 
 
 	http.HandleFunc("/", IndexHandler)
-	http.HandleFunc("/notifySimulation", reachableHostHandler)
-	http.HandleFunc("/removeReachablehost", removeReachablehostHandler)
+	http.HandleFunc("/notifySimulation", reachableOuHandler)
+	http.HandleFunc("/removeReachableOu", removeReachableOuHandler)
 
 	log.Printf("Started simulation on %s%s\n", hostname, ouPort)
 
@@ -87,13 +79,14 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	body := "Super Observation Unit running on " + hostname
-	fmt.Fprintf(w, "<h1>%s</h1></br><p>Post segments to to /segment</p>", body)
+	//body := "Simulation Unit running on " + hostname
+	//fmt.Fprintf(w, "Simulation IndexHandler", body)
+	fmt.Fprintf(w, "Index Handler\n")
 }
 
 
 /*Remove OUnodes that are dead/don't run anymore*/
-func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
+func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -117,7 +110,7 @@ func removeReachablehostHandler(w http.ResponseWriter, r *http.Request) {
 
 
 /*Receive from OUnodes who's running and append them to a list.*/
-func reachableHostHandler(w http.ResponseWriter, r *http.Request) {
+func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
     var ou ObservationUnit
 
     body, err := ioutil.ReadAll(r.Body)
@@ -161,25 +154,44 @@ func findNearestneighbours(ou ObservationUnit) {
 				fmt.Printf("Node is not in range..\n")
 				/*Should tell node that no OU is available..
 				noNeighbours(ou)*/
-				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
+				//ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
+				//go tellOuNoNeighbours(ou)
 			}
 		} else {
 			fmt.Printf("Node is the same as in list..\n")
+			//go tellOuNoNeighbours(ou)
 		}
 	}
 	printSlice(ou.Neighbours)
-	/*Need to sleep, or else it get connection refused.*/
+
+	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.Neighbours) >= 1 {
 		fmt.Println("# neighbours: ", len(ou.Neighbours))
+		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
-		go tellNodeAboutNeighbour(ou)	
+		go tellOuAboutNeighbour(ou)	
+	} else {
+		go tellOuNoNeighbours(ou)
 	}
 }
 
+func tellOuNoNeighbours(ou ObservationUnit) {
+	fmt.Printf("\n### tell Ou NoNeighbours ###\n")
+	url := fmt.Sprintf("http://%s/noNeighbours", ou.Addr)
+	fmt.Printf("Sending no neighbours to url: %s\n", url)
+
+	message := "OU have no neighbours!"
+	addressBody := strings.NewReader(message)
+
+
+	res, err := http.Post(url, "string", addressBody)
+	errorMsg("POST request to OU failed: ", err)
+	io.Copy(os.Stdout, res.Body)
+}
 
 /*Tell OU about other OUs that are reachable for this specific OU.*/
-func tellNodeAboutNeighbour(ou ObservationUnit) {
-	url := fmt.Sprintf("http://%s/neighbour", ou.Addr)
+func tellOuAboutNeighbour(ou ObservationUnit) {
+	url := fmt.Sprintf("http://%s/neighbours", ou.Addr)
 	fmt.Printf("Sending neighbour to url: %s\n", url)
 
 	b, err := json.Marshal(ou.Neighbours)

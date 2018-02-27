@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"flag"
 	"log"
-	//"net"
 	"os"
 	"net/http"
 	"io"
@@ -18,32 +17,28 @@ import (
 	"encoding/json"
 )
 
-
 var ouPort string
 var ouHost string
 
 var SimPort string
 
 var reachableHosts []string
-var startedNodes []string //can be removed..
-
-var biggestAddress string //can be removed?
+//var startedNodes []string //can be removed..
 
 var wg sync.WaitGroup
 
-var clusterHead string
+var biggestAddress string
 
 type ObservationUnit struct {
 	Addr string `json:"Addr"`
 	Id uint32 `json:"Id"`
 	Pid int `json:"Pid"`
 	Neighbours []string `json:"-"`
-	//LocationDistance float32
 	BatteryTime float64 `json:"BatteryTime"`
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
-	//clusterHead string 
-	//isClusterHead bool
+	clusterHead string `json:"-"`
+	isClusterHead bool `json:"-"`
 	//prevClusterHead string
 	//temperature int
 	//weather string
@@ -80,51 +75,13 @@ func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&ouPort, "port", ":8081", "OU port (prefix with colon)")
 }
 
-func randomInt(min, max int) int {
-    rand.Seed(time.Now().UTC().UnixNano())
-    return rand.Intn(max - min) + min
-}
-
-func errorMsg(s string, err error) {
-	if err != nil {
-		log.Fatal(s, err)
-	}
-}
-
-func printSlice(s []string) {
-	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
-}
-
-//Check if a value is in a list/slice and return true or false
-func listContains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-//Get address, check if it is started nodes slice, if not: append the address
-func retrieveAddresses(addr string) []string {
-
-	if listContains(startedNodes, addr) {
-		fmt.Printf("List contains %s.\n", addr)
-		return startedNodes
-	} else {
-		fmt.Printf("List do not contain %s, need to append.\n", addr)
-		startedNodes = append(startedNodes, addr)
-		return startedNodes
-	}
-}
-
 
 func startServer() {
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	hostaddress := ouHost + ouPort
-	startedNodes = append(startedNodes, hostaddress)
+	//startedNodes = append(startedNodes, hostaddress)
 	
-	log.Printf("Starting Observation Unit on %s%s\n", ouHost, ouPort)
+	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 	
 	ou := &ObservationUnit{
         Addr:			hostaddress,
@@ -133,13 +90,16 @@ func startServer() {
         BatteryTime:	randEstimateBattery(),
         Neighbours:		[]string{},
         Xcor:			estimateLocation(),
-        Ycor:			estimateLocation(),}
+        Ycor:			estimateLocation(),
+    	clusterHead:	"", 
+		isClusterHead:	false,}
 
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", shutdownHandler)
-	http.HandleFunc("/neighbour", ou.neighbourHandler)
-	http.HandleFunc("/newNeighbour", ou.newNeighbourHandler)
+	http.HandleFunc("/neighbours", ou.NeighboursHandler)
+	http.HandleFunc("/newNeighbour", ou.newNeighboursHandler)
+	http.HandleFunc("/noNeighbours", ou.NoNeighboursHandler)
 
 
 	ou.tellSimulationUnit()
@@ -153,40 +113,10 @@ func startServer() {
 
 }
 
-/*
-func (ou *ObservationUnit) neighbourHandler2(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nneighbourHandler2\n")
-	var addrString string
-
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
-	}
-
-	fmt.Printf("Address string is: ")
-	fmt.Printf(addrString)
-	
-	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
-
-	for _, addr := range(addrString) {
-		if !listContains(ou.Neighbours, addrString) {
-			fmt.Printf(string(addr))
-			//ou.Neighbour = append(ou.Neighbour, addr)
-			fmt.Printf("\nAdded neighbour to list..\n")
-			printSlice(ou.Neighbours)
-
-			//time.Sleep(1000 * time.Millisecond)
-			ou.contactNeighbour()
-		}
-		
-	}
-
-}*/
 
 /*Receive neighbours from simulation. Contact neighbours to say "Hi, Here I am"*/
-func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nneighbourHandler\n")
+func (ou *ObservationUnit) NeighboursHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nNeighboursHandler\n")
 	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -217,9 +147,29 @@ func (ou *ObservationUnit) neighbourHandler(w http.ResponseWriter, r *http.Reque
 }
 
 
+/*There are no OUs in range of the OU.. Set OU as CH*/
+func (ou *ObservationUnit) NoNeighboursHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nNo neighbour Handler\n")
+	var addrString string
+
+	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
+	if pc != 1 || rateErr != nil {
+		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
+	}
+
+	//fmt.Printf(addrString)
+
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	ou.isClusterHead = true
+	ou.clusterHead = ou.Addr
+}
+
+
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour. Need to send this to the leader/CH in the cluster.*/
-func (ou *ObservationUnit) newNeighbourHandler(w http.ResponseWriter, r *http.Request) {
+func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nNew neighbour Handler\n")
 	var addrString string
 
@@ -233,8 +183,10 @@ func (ou *ObservationUnit) newNeighbourHandler(w http.ResponseWriter, r *http.Re
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+	ou.clusterHeadElection()
 	ou.getInfoToCH()
 }
+
 
 func (ou *ObservationUnit) getInfoToCH() {
 	fmt.Printf("\nGet info about new OU to CH!\n")
@@ -248,6 +200,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "Index Handler\n")
 }
+
 
 func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	// Consume and close body
@@ -265,7 +218,7 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 /*Contant neighbour with OUs address as body to tell that it wants to connect if possible. */
 func (ou *ObservationUnit) contactNeighbour() {
 	fmt.Printf("\nContacting neighbours..\n")
-	for _, neighbour := range(ou.Neighbours) {
+	for _, neighbour := range ou.Neighbours {
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		fmt.Printf("\nContacting neighbour url: %s ", url)	
 
@@ -294,14 +247,14 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 	addressBody := strings.NewReader(string(b))
 
 	res, err := http.Post(url, "bytes", addressBody)
-	errorMsg("POST request to SOU failed: ", err)
+	errorMsg("POST request to Simulation failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
 
 
 /*Tell SOU that you're dead */
 func tellSimulationUnitDead() {
-	url := fmt.Sprintf("http://localhost:%s/removeReachablehost", SimPort)
+	url := fmt.Sprintf("http://localhost:%s/removeReachableOu", SimPort)
 	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
 	
 	nodeString := ouHost + ouPort
@@ -310,8 +263,9 @@ func tellSimulationUnitDead() {
 	addressBody := strings.NewReader(nodeString)
 	
 	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Dead Post address: ", err)
+	errorMsg("Post request dead OU: ", err)
 }
+
 
 /*func tellCH() {
 	url := fmt.Sprintf("http://%s%s/chief", biggestAddress, ouPort)	
@@ -329,6 +283,7 @@ func tellNodesaboutClusterHead() {
 		http.Post(url, "string", addressBody)
 	}
 }*/
+
 
 /*Chose if node is the biggest and become chief..*/
 func (ou *ObservationUnit) biggestId() bool {
@@ -355,8 +310,13 @@ func (ou *ObservationUnit) biggestId() bool {
 	}
 }
 
+
 func (ou *ObservationUnit) clusterHeadElection() {
 	fmt.Printf("\n### Cluster Head Election ###\n")
+	if len(ou.Neighbours) == 0 {
+		fmt.Printf("No neighbours.. Be your own CH!\n")
+		ou.isClusterHead = true
+	}
 	if ou.biggestId() {
 		fmt.Printf("OU has biggest ID\n")
 	} else {
@@ -364,6 +324,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	}
 
 }
+
 
 //Hash address to be ID of node
 func hashAddress(address string) uint32 {
@@ -373,12 +334,14 @@ func hashAddress(address string) uint32 {
 	return hashedAddress
 }
 
+
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	num := (rand.Float64() * 495) + 5
 
 	return num
 }
+
 
 /*func (ou *ObservationUnit) estimateLocation() {
 	//locDist := rand.Float32()
@@ -389,22 +352,26 @@ func estimateLocation() float64 {
 	ou.Ycor = (rand.Float64() * 495) + 5
 }
 */
+
 /**/
 func estimateThreshold() {
 
 }
 
+
 func randEstimateBattery() float64 {
-	//float32
+	//float64
 	rand.Seed(time.Now().UTC().UnixNano())
 	num := rand.Float64()
 
 	return num
 }
 
+
 /*func estimateBattery() {
 	start := 3000
 }*/
+
 
 func setMaxProcs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
@@ -413,6 +380,48 @@ func setMaxProcs() int {
 		return maxProcs
 	}
 	return numCPU
+}
+
+
+func randomInt(min, max int) int {
+    rand.Seed(time.Now().UTC().UnixNano())
+    return rand.Intn(max - min) + min
+}
+
+
+func errorMsg(s string, err error) {
+	if err != nil {
+		log.Fatal(s, err)
+	}
+}
+
+func printSlice(s []string) {
+	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
+}
+
+
+//Check if a value is in a list/slice and return true or false
+func listContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+
+//Get address, check if it is started nodes slice, if not: append the address
+func retrieveAddresses(list []string, addr string) []string {
+
+	if listContains(list, addr) {
+		fmt.Printf("List contains %s.\n", addr)
+		return list
+	} else {
+		fmt.Printf("List do not contain %s, need to append.\n", addr)
+		list = append(list, addr)
+		return list
+	}
 }
 
 
@@ -428,12 +437,12 @@ func weather_sensor() {
 	rand.Seed(time.Now().UTC().UnixNano())
     rand_weather := weather[rand.Intn(len(weather))]
 	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
-	//ObservationUnit.weather = rand_weather
+	//ou.weather = rand_weather
 }
 
 
 func temperature_sensor() {
 	rand_number := randomInt(-30, 20)
-	//ObservationUnit.temperature = rand_number
+	//ou.temperature = rand_number
 	fmt.Println(rand_number)
 }
