@@ -37,15 +37,12 @@ End with an example of getting some data out of the system or using it for a lit
 
 ## Running the tests
 
-
+ABC...
 
 ## Built With
 
 * [Golang](https://golang.org/) - The program language
 
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
 
 ## Authors
 
