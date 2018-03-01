@@ -291,9 +291,6 @@ func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
 	url := fmt.Sprintf("http://%s/OuClusterMember", newNeighbour)
 	fmt.Printf("Sending to url: %s", url)
 
-	//message := ("You're a member! CH is %s", ou.Addr)
-
-
 	fmt.Printf("with body: %s", ou.ClusterHead)
 	addressBody := strings.NewReader(ou.ClusterHead)
 	fmt.Printf("\n")
@@ -412,7 +409,6 @@ func (ou *ObservationUnit) canOuBecomeCH() {
 	//Algorithm to figure out if OU can be CH or not..
 	//if OU can be CH, than OU should broadcast to its neighbours..
 
-
 }
 
 //Hash address to be ID of node
@@ -449,11 +445,13 @@ func randEstimateBattery() float64 {
 
 }*/
 
+
 func simulateSleep() {
 	timer := time.NewTimer(time.Second * 2)
     <- timer.C
     println("Timer expired")
 }
+
 
 func setMaxProcs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
