@@ -101,7 +101,7 @@ func startServer() {
 	http.HandleFunc("/newNeighbour", ou.newNeighboursHandler)
 	http.HandleFunc("/noNeighbours", ou.NoNeighboursHandler)
 
-
+	//go ou.batteryTime()
 	ou.tellSimulationUnit()
 
 
@@ -299,6 +299,8 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		ou.isClusterHead = true
 		ou.clusterHead = ou.Addr
 	} else {
+		//canOuBecomeCH()
+		//broadcastToNeighbours()
 		if ou.biggestId() {
 			fmt.Printf("OU has biggest ID\n")
 		} else {
@@ -325,12 +327,6 @@ func estimateLocation() float64 {
 }
 
 
-
-func estimateThreshold() {
-
-}
-
-
 func randEstimateBattery() float64 {
 	//float64
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -339,11 +335,19 @@ func randEstimateBattery() float64 {
 	return num
 }
 
-
-/*func estimateBattery() {
+func batteryConsumption() {
 	start := 3000
-}*/
+	battery := 100
 
+	timer1 := time.NewTimer(2 * time.Second)
+
+}
+
+func simulateSleep() {
+	timer := time.NewTimer(time.Second * 2)
+    <- timer.C
+    println("Timer expired")
+}
 
 func setMaxProcs() int {
 	maxProcs := runtime.GOMAXPROCS(0)
