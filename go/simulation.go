@@ -46,8 +46,8 @@ var runningOus []ObservationUnit
 func main() {
 	numNodesRunning = 0
 	nodeRadius = 100.0
-	gridX = 500
-	gridY = 500
+	gridX = 200
+	gridY = 200
 
 	hostname = "localhost"
 

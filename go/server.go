@@ -23,7 +23,7 @@ var ouHost string
 var SimPort string
 
 var reachableHosts []string
-//var startedNodes []string //can be removed..
+//var startedNodes string //can be removed..
 
 var wg sync.WaitGroup
 
@@ -60,7 +60,7 @@ func main() {
 		runMode.Parse(os.Args[2:])
 		wg.Add(1)
 		ret := setMaxProcs()
-		fmt.Println(ret)
+		fmt.Println("Processes:", ret)
 		go startServer()
 		wg.Wait()
 
@@ -142,20 +142,20 @@ func (ou *ObservationUnit) NeighboursHandler(w http.ResponseWriter, r *http.Requ
     fmt.Printf("%+v\n", ou)
 
 	time.Sleep(1000 * time.Millisecond)
-	for _, addr := range(ou.Neighbours) {
+	/*for _, addr := range(ou.Neighbours) {
 		fmt.Printf(string(addr))
 		//ou.Neighbour = append(ou.Neighbour, addr)
 		fmt.Printf("\nAdded neighbour to list..\n")
 		printSlice(ou.Neighbours)
 
-	}
+	}*/
 	go ou.contactNeighbour()
 }
 
 
 /*There are no OUs in range of the OU.. Set OU as CH*/
 func (ou *ObservationUnit) NoNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nNo neighbour Handler\n")
+	//fmt.Printf("\nNo neighbour Handler\n")
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -193,11 +193,13 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	if ou.Addr == ou.ClusterHead {
 		fmt.Printf("\nOU is CH!\n")
 		ou.Neighbours = append(ou.Neighbours, newNeighbour)
-		fmt.Printf("OU neighbours are: \n")
-		printSlice(ou.Neighbours)
+		fmt.Printf("OU is: ")
+		fmt.Println(ou)
+		fmt.Printf("\n")
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
+		time.Sleep(1000 * time.Millisecond)
 		go ou.getInfoToCH(newNeighbour)
 	}
 
@@ -209,7 +211,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 /*Decide if new OU can join the cluster or not..*/
 func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nNotify CH Handler\n")
-	var addrString string
+	/*var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
 	if pc != 1 || rateErr != nil {
@@ -219,10 +221,33 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 	fmt.Printf(addrString)
 
 	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()*/
+
+	var data []string
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+  
+    //fmt.Printf(string(body))  
+
+	if err := json.Unmarshal(body, &data); err != nil {
+        panic(err)
+    }
+
+    io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+	first := data[:1]
+	others := data[1:]
 
-	//How to determine if the OU can join or not??
+	fmt.Println(first)
+	fmt.Printf("-----")
+	fmt.Println(others)
+
+	if !listContains(others) {
+		fmt.Printf("New OU neighbour is not in the cluser..\n")
+		//How to determine if the OU can join or not??
+
+	}
 }
 
 func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http.Request) {
@@ -234,14 +259,16 @@ func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	fmt.Printf(clusterHead)
+	//fmt.Printf(clusterHead)
 
 	if !listContains(ou.Neighbours, clusterHead) {
 		ou.Neighbours = append(ou.Neighbours, clusterHead)
 	}
 
 	ou.ClusterHead = clusterHead
-	printSlice(ou.Neighbours)
+	fmt.Printf("Added ClusterHead and neighbours to OU. OU is: ")
+	fmt.Println(ou)
+	fmt.Printf("\n")
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -273,12 +300,12 @@ func shutdownHandler(w http.ResponseWriter, r *http.Request) {
 
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect if possible. */
 func (ou *ObservationUnit) contactNeighbour() {
-	fmt.Printf("\nContacting neighbours..\n")
+	//fmt.Printf("\nContacting neighbours..\n")
 	for _, neighbour := range ou.Neighbours {
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		fmt.Printf("\nContacting neighbour url: %s ", url)	
 
-		fmt.Printf("with body: %s", ou.Addr)
+		fmt.Printf(" with body: %s", ou.Addr)
 		addressBody := strings.NewReader(ou.Addr)
 
 		fmt.Printf("\n")
@@ -291,7 +318,7 @@ func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
 	url := fmt.Sprintf("http://%s/OuClusterMember", newNeighbour)
 	fmt.Printf("Sending to url: %s", url)
 
-	fmt.Printf("with body: %s", ou.ClusterHead)
+	fmt.Printf(" with body: %s", ou.ClusterHead)
 	addressBody := strings.NewReader(ou.ClusterHead)
 	fmt.Printf("\n")
 
@@ -303,14 +330,14 @@ func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
 /*Tell BS that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
-	fmt.Printf("Sending to url: %s", url)
+	fmt.Printf("Sending to url: %s with info about OU.\n", url)
 
 	b, err := json.Marshal(ou)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("\nwith data: ")
+	//fmt.Printf("\nwith data: ")
 	fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
@@ -343,7 +370,14 @@ func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 	url := fmt.Sprintf("http://%s/notifyCH", ou.ClusterHead)
 	fmt.Printf("Sending to url: %s", url)
 
-	message := ou.Addr + " " + newNeighbour
+	var data []string
+
+	fmt.Printf("\nTry to make a list with info to CH\n")
+	data = append(data, ou.Addr)
+	data = append(data, newNeighbour)
+	printSlice(data)
+
+	/*message := ou.Addr + " " + newNeighbour
 	fmt.Printf("\nWith the string: %s\n", message)
 
 
@@ -351,7 +385,24 @@ func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 	
 	fmt.Printf("\n")
 	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Post request dead OU: ", err)
+	errorMsg("Post request info to CH: ", err)
+	*/
+	/*------------------*/
+	b, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//fmt.Printf("\nwith data: ")
+	fmt.Println(string(b))
+
+	addressBody := strings.NewReader(string(b))
+
+	fmt.Printf("\n")
+	_, err = http.Post(url, "string", addressBody)
+	errorMsg("Post request info to CH: ", err)
+
+
 }
 
 
@@ -391,11 +442,11 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		//if ou.ClusterHead 
 		ou.canOuBecomeCH()
 		//broadcastToNeighbours()
-		if ou.biggestId() {
+		/*if ou.biggestId() {
 			fmt.Printf("OU has biggest ID\n")
 		} else {
 			fmt.Printf("OU is not biggest ID\n")
-		}
+		}*/
 	}
 }
 
@@ -405,6 +456,7 @@ func (ou *ObservationUnit) canOuBecomeCH() {
 	fmt.Println(ou.BatteryTime)
 	fmt.Println(ou.Id)
 	fmt.Println(len(ou.Neighbours))
+	fmt.Printf("Implement an algorithm to evaluate if OU can be CH..\n\n")
 
 	//Algorithm to figure out if OU can be CH or not..
 	//if OU can be CH, than OU should broadcast to its neighbours..
@@ -422,8 +474,8 @@ func hashAddress(address string) uint32 {
 
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
-	num := (rand.Float64() * 495) + 5
-
+	//num := (rand.Float64() * 495) + 5
+	num := (rand.Float64() * 195) + 5
 	return num
 }
 
@@ -528,7 +580,8 @@ func temperature_sensor() {
 }
 
 
-/*Return a random int describing which bandwidth-type for specific OU*/
+/*Return a random int describing which bandwidth-type for specific OU.
+Use this value to determine if OU can be CH*/
 func bandwidth() int {
 	bw := make(map[string]int)
 	bw["LoRa"] = 50
@@ -545,7 +598,7 @@ func bandwidth() int {
 	}
 
 	//fmt.Println(k, bw[k])
-	fmt.Println(bw[k])
+	//fmt.Println(bw[k])
 	return bw[k]
 
 }
