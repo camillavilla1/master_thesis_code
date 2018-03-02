@@ -279,7 +279,7 @@ func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter,
     	ou.Neighbours = append(ou.Neighbours, neighbour)
     }
 
-    //fmt.Println(ou)
+    fmt.Println(ou)
 
     io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
@@ -304,7 +304,7 @@ func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http
 
 	ou.ClusterHead = clusterHead
 	//fmt.Printf("Added ClusterHead and neighbours to OU. OU is: ")
-	//fmt.Println(ou)
+	fmt.Println(ou)
 	//fmt.Printf("\n")
 
 
