@@ -98,8 +98,8 @@ func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
 		numNodesRunning -= 1
 	}
 
-	fmt.Printf("Running nodes are: %v\n", runningNodes)
 	fmt.Println("Number of nodes running: ", numNodesRunning)
+	fmt.Printf("Running nodes are: %v\n", runningNodes)
 
 
 	io.Copy(ioutil.Discard, r.Body)
@@ -133,7 +133,7 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 
 	go findNearestneighbours(ou)
 
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 }
 
 /*Find nearest neighbour(s) that OUnode can contact.*/
@@ -145,7 +145,7 @@ func findNearestneighbours(ou ObservationUnit) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 
 			if distance < nodeRadius {
-				fmt.Printf("--- OU IS IN RANGE!! ---\n")
+				//fmt.Printf("--- OU IS IN RANGE!! ---\n")
 				ou.ReachableNeighbours = append(ou.ReachableNeighbours, startedOu.Addr)
 			} //else {
 			//	fmt.Printf("OU is NOT in range..\n")
@@ -191,7 +191,7 @@ func tellOuNoReachableNeighbours(ou ObservationUnit) {
 /*Tell OU about other OUs that are reachable for this specific OU.*/
 func tellOuAboutReachableNeighbour(ou ObservationUnit) {
 	url := fmt.Sprintf("http://%s/ReachableNeighbours", ou.Addr)
-	fmt.Printf("Sending neighbour to url: %s\n", url)
+	fmt.Printf("Sending neighbour to url: %s ", url)
 
 	b, err := json.Marshal(ou.ReachableNeighbours)
 	if err != nil {

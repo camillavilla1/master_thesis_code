@@ -112,7 +112,7 @@ func startServer() {
 
 	//go ou.batteryTime()
 
-	ou.tellSimulationUnit()
+	go ou.tellSimulationUnit()
 
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -132,7 +132,7 @@ func (ou *ObservationUnit) ReachableNeighboursHandler(w http.ResponseWriter, r *
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
   
-    fmt.Printf(string(body))  
+    //fmt.Printf(string(body))  
 
 	if err := json.Unmarshal(body, &tmpNeighbour); err != nil {
         panic(err)
@@ -143,7 +143,7 @@ func (ou *ObservationUnit) ReachableNeighboursHandler(w http.ResponseWriter, r *
 
     ou.ReachableNeighbours = tmpNeighbour
 
-    fmt.Printf("%+v\n", ou)
+    //fmt.Printf("%+v\n", ou)
 
 	time.Sleep(1000 * time.Millisecond)
 	/*for _, addr := range(ou.ReachableNeighbours) {
@@ -187,7 +187,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	fmt.Printf(newNeighbour)
+	//fmt.Printf(newNeighbour)
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
@@ -197,17 +197,15 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	if ou.Addr == ou.ClusterHead {
 		fmt.Printf("\nOU is CH!\n")
 		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
-		fmt.Printf("OU is: ")
-		fmt.Println(ou)
-		fmt.Printf("\n")
+		//fmt.Printf("OU is: ")
+		//fmt.Println(ou)
+		//fmt.Printf("\n")
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
 		time.Sleep(1000 * time.Millisecond)
 		go ou.getInfoToCH(newNeighbour)
 	}
-
-	//ou.clusterHeadElection()
 
 }
 
@@ -234,10 +232,11 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 		fmt.Printf("New OU neighbour .\n")
 	}*/
 
-	ou.tellContactingOuOk(data)
+	go ou.tellContactingOuOk(data)
 }
 
 
+/*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nConnection OK Handler!!\n")
 
@@ -263,7 +262,7 @@ func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Re
 
 
 func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nConnection OK Handler!!\n")
+	fmt.Printf("\nConnection to neighbour OK Handler!!\n")
 
 	var neighbour string
 	
@@ -286,6 +285,7 @@ func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter,
 	defer r.Body.Close()
 }
 
+
 func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\nOU Cluster Member (from CH) Handler!!\n")
 	var clusterHead string
@@ -303,13 +303,15 @@ func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http
 	}
 
 	ou.ClusterHead = clusterHead
-	fmt.Printf("Added ClusterHead and neighbours to OU. OU is: ")
-	fmt.Println(ou)
-	fmt.Printf("\n")
+	//fmt.Printf("Added ClusterHead and neighbours to OU. OU is: ")
+	//fmt.Println(ou)
+	//fmt.Printf("\n")
+
+
+	//go ou.clusterHeadElection() //???
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
-
 }
 
 
@@ -338,7 +340,7 @@ func (ou *ObservationUnit) contactNewOu(newOu string) {
 	fmt.Printf("\n### Tell contacting OU that ok to connect ###\n")
 
 	url := fmt.Sprintf("http://%s/connectingToNeighbourOk", newOu)
-	fmt.Printf("Sending to url: %s", url)
+	fmt.Printf("Sending to url: %s \n", url)
 
 	b, err := json.Marshal(ou.Addr)
 	if err != nil {
@@ -346,18 +348,19 @@ func (ou *ObservationUnit) contactNewOu(newOu string) {
 		return
 	}
 
-	fmt.Println(string(b))
+	//fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
 
 
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Error posting to new OU about connection ok: ", err)
 
 
 }
 
+/*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 	fmt.Printf("\n### Tell contacting Neighbour that ok to connect ###\n")
 
@@ -389,11 +392,11 @@ func (ou *ObservationUnit) contactNeighbour() {
 	for _, neighbour := range ou.ReachableNeighbours {
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		fmt.Printf("\nContacting neighbour url: %s ", url)	
+		fmt.Printf(" with body: %s \n", ou.Addr)
 
-		fmt.Printf(" with body: %s", ou.Addr)
 		addressBody := strings.NewReader(ou.Addr)
 
-		fmt.Printf("\n")
+		//fmt.Printf("\n")
 		_, err := http.Post(url, "string", addressBody)
 		errorMsg("Error posting to neighbour ", err)
 	}
@@ -403,9 +406,9 @@ func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
 	url := fmt.Sprintf("http://%s/OuClusterMember", newNeighbour)
 	fmt.Printf("Sending to url: %s", url)
 
-	fmt.Printf(" with body: %s", ou.ClusterHead)
+	fmt.Printf(" with body: %s \n", ou.ClusterHead)
 	addressBody := strings.NewReader(ou.ClusterHead)
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 
 	_, err := http.Post(url, "string", addressBody)
 	errorMsg("Error posting to neighbour ", err)
@@ -422,12 +425,12 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 		fmt.Println(err)
 		return
 	}
-	//fmt.Printf("\nwith data: ")
-	fmt.Println(string(b))
+
+	//fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
 
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 	res, err := http.Post(url, "bytes", addressBody)
 	errorMsg("POST request to Simulation failed: ", err)
 	io.Copy(os.Stdout, res.Body)
@@ -444,7 +447,7 @@ func tellSimulationUnitDead() {
 
 	addressBody := strings.NewReader(nodeString)
 
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 	_, err := http.Post(url, "string", addressBody)
 	errorMsg("Post request dead OU: ", err)
 }
@@ -453,7 +456,7 @@ func tellSimulationUnitDead() {
 func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 	fmt.Printf("\nGet info about new OU to CH!\n")
 	url := fmt.Sprintf("http://%s/notifyCH", ou.ClusterHead)
-	fmt.Printf("Sending to url: %s", url)
+	fmt.Printf("Sending to url: %s \n", url)
 
 	var data []string
 
@@ -465,12 +468,12 @@ func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 		fmt.Println(err)
 		return
 	}
-	//fmt.Printf("\nwith data: ")
-	fmt.Println(string(b))
+
+	//fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
 
-	fmt.Printf("\n")
+	//fmt.Printf("\n")
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Post request info to CH: ", err)
 
@@ -512,7 +515,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		ou.ClusterHead = ou.Addr
 	} else {
 		//if ou.ClusterHead 
-		ou.canOuBecomeCH()
+		go ou.canOuBecomeCH()
 		//broadcastToNeighbours()
 		/*if ou.biggestId() {
 			fmt.Printf("OU has biggest ID\n")
