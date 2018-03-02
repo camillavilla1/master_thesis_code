@@ -32,7 +32,7 @@ type ObservationUnit struct {
 	Addr string
 	Id uint32
 	Pid int
-	Neighbours []string
+	ReachableNeighbours []string
 	Xcor float64
 	Ycor float64
 	//clusterHead string
@@ -146,7 +146,7 @@ func findNearestneighbours(ou ObservationUnit) {
 
 			if distance < nodeRadius {
 				fmt.Printf("--- OU IS IN RANGE!! ---\n")
-				ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
+				ou.ReachableNeighbours = append(ou.ReachableNeighbours, startedOu.Addr)
 			} //else {
 			//	fmt.Printf("OU is NOT in range..\n")
 				/*Should tell node that no OU is available..
@@ -161,25 +161,25 @@ func findNearestneighbours(ou ObservationUnit) {
 	}
 
 	/*Tell OU about no neighbours or neighbours..*/
-	if len(ou.Neighbours) >= 1 {
-		fmt.Println("# OU neighbours: ", len(ou.Neighbours))
+	if len(ou.ReachableNeighbours) >= 1 {
+		fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
 		//printSlice(ou.Neighbours)
 		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
-		go tellOuAboutNeighbour(ou)	
+		go tellOuAboutReachableNeighbour(ou)	
 	} else {
 		fmt.Printf("OU have no neighbours..\n")
 		time.Sleep(1000 * time.Millisecond)
-		go tellOuNoNeighbours(ou)
+		go tellOuNoReachableNeighbours(ou)
 	}
 }
 
-func tellOuNoNeighbours(ou ObservationUnit) {
-	fmt.Printf("\n### tell Ou NoNeighbours ###\n")
-	url := fmt.Sprintf("http://%s/noNeighbours", ou.Addr)
-	fmt.Printf("Sending no neighbours to url: %s\n", url)
+func tellOuNoReachableNeighbours(ou ObservationUnit) {
+	fmt.Printf("\n### tell Ou NoReachableNeighbours ###\n")
+	url := fmt.Sprintf("http://%s/noReachableNeighbours", ou.Addr)
+	fmt.Printf("Sending no reachable neighbours to url: %s\n", url)
 
-	message := "OU have no neighbours!"
+	message := "OU have no reachable neighbours!"
 	addressBody := strings.NewReader(message)
 
 
@@ -189,11 +189,11 @@ func tellOuNoNeighbours(ou ObservationUnit) {
 }
 
 /*Tell OU about other OUs that are reachable for this specific OU.*/
-func tellOuAboutNeighbour(ou ObservationUnit) {
-	url := fmt.Sprintf("http://%s/neighbours", ou.Addr)
+func tellOuAboutReachableNeighbour(ou ObservationUnit) {
+	url := fmt.Sprintf("http://%s/ReachableNeighbours", ou.Addr)
 	fmt.Printf("Sending neighbour to url: %s\n", url)
 
-	b, err := json.Marshal(ou.Neighbours)
+	b, err := json.Marshal(ou.ReachableNeighbours)
 	if err != nil {
 		fmt.Println(err)
 		return
