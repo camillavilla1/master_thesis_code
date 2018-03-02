@@ -34,6 +34,7 @@ type ObservationUnit struct {
 	Id uint32 `json:"Id"`
 	Pid int `json:"Pid"`
 	ReachableNeighbours []string `json:"-"`
+	Neighbours []string `json:"-"`
 	BatteryTime float64 `json:"BatteryTime"`
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
@@ -85,16 +86,17 @@ func startServer() {
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 	
 	ou := &ObservationUnit{
-        Addr:			hostaddress,
-        Id:				hashAddress(hostaddress),
-        Pid:			os.Getpid(),
-        BatteryTime:	randEstimateBattery(),
-        ReachableNeighbours:		[]string{},
-        Xcor:			estimateLocation(),
-        Ycor:			estimateLocation(),
-    	ClusterHead:	"", 
-		IsClusterHead:	false,
-		Bandwidth:		bandwidth()}
+        Addr:					hostaddress,
+        Id:						hashAddress(hostaddress),
+        Pid:					os.Getpid(),
+        BatteryTime:			randEstimateBattery(),
+        ReachableNeighbours:	[]string{},
+        Neighbours:				[]string{},
+        Xcor:					estimateLocation(),
+        Ycor:					estimateLocation(),
+    	ClusterHead:			"", 
+		IsClusterHead:			false,
+		Bandwidth:				bandwidth()}
 
 
 	http.HandleFunc("/", IndexHandler)
@@ -106,8 +108,6 @@ func startServer() {
 	http.HandleFunc("/OuClusterMember", ou.ouClusterMemberHandler)
 	http.HandleFunc("/connectingOk", ou.connectionOkHandler)
 	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
-
-	
 
 
 	//go ou.batteryTime()
@@ -252,7 +252,8 @@ func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Re
         panic(err)
     }
 
-    ou.ReachableNeighbours = append(ou.ReachableNeighbours, newOu)
+    //ou.ReachableNeighbours = append(ou.ReachableNeighbours, newOu)
+    ou.Neighbours = append(ou.Neighbours, newOu)
     go ou.contactNewOu(newOu)
 
 
@@ -269,15 +270,17 @@ func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter,
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
   
-    fmt.Printf(string(body))  
+    //mt.Printf(string(body))  
 
 	if err := json.Unmarshal(body, &neighbour); err != nil {
         panic(err)
     }
 
-    if !listContains(ou.ReachableNeighbours, neighbour) {
-    	ou.ReachableNeighbours = append(ou.ReachableNeighbours, neighbour)
+    if !listContains(ou.Neighbours, neighbour) {
+    	ou.Neighbours = append(ou.Neighbours, neighbour)
     }
+
+    //fmt.Println(ou)
 
     io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
@@ -294,8 +297,9 @@ func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http
 
 	//fmt.Printf(clusterHead)
 
-	if !listContains(ou.ReachableNeighbours, clusterHead) {
-		ou.ReachableNeighbours = append(ou.ReachableNeighbours, clusterHead)
+	/*Add to list over OUs neighbours that he can connect with..*/
+	if !listContains(ou.Neighbours, clusterHead) {
+		ou.Neighbours = append(ou.Neighbours, clusterHead)
 	}
 
 	ou.ClusterHead = clusterHead
@@ -456,17 +460,6 @@ func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 	data = append(data, ou.Addr)
 	data = append(data, newNeighbour)
 
-	/*message := ou.Addr + " " + newNeighbour
-	fmt.Printf("\nWith the string: %s\n", message)
-
-
-	addressBody := strings.NewReader(message)
-	
-	fmt.Printf("\n")
-	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Post request info to CH: ", err)
-	*/
-	/*------------------*/
 	b, err := json.Marshal(data)
 	if err != nil {
 		fmt.Println(err)
@@ -580,7 +573,7 @@ func randEstimateBattery() float64 {
 func simulateSleep() {
 	timer := time.NewTimer(time.Second * 2)
     <- timer.C
-    println("Timer expired")
+    fmt.Println("Timer expired")
 }
 
 
