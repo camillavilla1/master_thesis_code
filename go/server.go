@@ -108,7 +108,7 @@ func startServer() {
 	http.HandleFunc("/OuClusterMember", ou.ouClusterMemberHandler)
 	http.HandleFunc("/connectingOk", ou.connectionOkHandler)
 	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
-	http.HandleFunc("/notifyChThroughNeighbours", ou.notifyChThroughNeighboursHandler)
+	//http.HandleFunc("/notifyChThroughNeighbours", ou.notifyChThroughNeighboursHandler)
 
 
 	//go ou.batteryTime()
@@ -211,7 +211,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 }
 
-func (ou *ObservationUnit) notifyChThroughNeighboursHandler(w http.ResponseWriter, r *http.Request) {
+/*func (ou *ObservationUnit) notifyChThroughNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### Notify CH Handler about new OU. If this OU is CH, ok. If not, need to pass the message to next neighbour(s) ###\n")
 	var data []string
 	body, err := ioutil.ReadAll(r.Body)
@@ -233,7 +233,7 @@ func (ou *ObservationUnit) notifyChThroughNeighboursHandler(w http.ResponseWrite
 		go ou.notifyChThroughNeighbours(data)
 	}
 
-}
+}*/
 
 /*Decide if new OU can join the cluster or not..*/
 func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Request) {
@@ -385,7 +385,7 @@ func (ou *ObservationUnit) contactNewOu(newOu string) {
 }
 
 
-func (ou *ObservationUnit) notifyChThroughNeighbours(data []string) {
+/*func (ou *ObservationUnit) notifyChThroughNeighbours(data []string) {
 	fmt.Printf("\n### Notify CH Through Neighbours ###\n")
 
 	neighbourUrl := strings.Join(data[:1],"")
@@ -416,7 +416,7 @@ func (ou *ObservationUnit) notifyChThroughNeighbours(data []string) {
 			}
 		}
 	}
-}
+}*/
 
 /*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
@@ -437,6 +437,7 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 		return
 	}
 
+	fmt.Printf("\n")
 	fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
