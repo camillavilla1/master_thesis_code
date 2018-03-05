@@ -41,6 +41,7 @@ type ObservationUnit struct {
 	ClusterHead string `json:"-"`
 	IsClusterHead bool `json:"-"`
 	Bandwidth int `json:"-"`
+	PathToCh []string `json:"-"`
 	//prevClusterHead string
 	//temperature int
 	//weather string
@@ -96,7 +97,8 @@ func startServer() {
         Ycor:					estimateLocation(),
     	ClusterHead:			"", 
 		IsClusterHead:			false,
-		Bandwidth:				bandwidth()}
+		Bandwidth:				bandwidth(),
+		PathToCh:				[]string{}}
 
 
 	http.HandleFunc("/", IndexHandler)
@@ -189,10 +191,11 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	//fmt.Printf(newNeighbour)
+	fmt.Printf(newNeighbour)
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
+
 
 	
 	//Notify CH to figure out if the OU can join the cluster. 
@@ -205,6 +208,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
+
 		time.Sleep(1000 * time.Millisecond)
 		go ou.getInfoToCH(newNeighbour)
 	}
@@ -243,7 +247,7 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
   
-    //fmt.Printf(string(body))  
+    fmt.Printf(string(body))  
 
 	if err := json.Unmarshal(body, &data); err != nil {
         panic(err)
@@ -530,6 +534,8 @@ func (ou *ObservationUnit) getInfoToCH(newNeighbour string) {
 		}
 		data = append(data, ou.Addr)
 		data = append(data, newNeighbour)
+
+		fmt.Println(data)
 
 		b, err := json.Marshal(data)
 		if err != nil {
