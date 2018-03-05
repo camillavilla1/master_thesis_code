@@ -190,7 +190,7 @@ func tellOuNoReachableNeighbours(ou ObservationUnit) {
 
 /*Tell OU about other OUs that are reachable for this specific OU.*/
 func tellOuAboutReachableNeighbour(ou ObservationUnit) {
-	url := fmt.Sprintf("http://%s/ReachableNeighbours", ou.Addr)
+	url := fmt.Sprintf("http://%s/reachableNeighbours", ou.Addr)
 	fmt.Printf("Sending neighbour to url: %s ", url)
 
 	b, err := json.Marshal(ou.ReachableNeighbours)
