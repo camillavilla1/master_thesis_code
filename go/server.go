@@ -203,7 +203,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
-		fmt.Printf("\nOU is not CH so need to inform CH!\n")
+		fmt.Printf("\nOU is not CH so need forward info to CH!\n")
 		time.Sleep(1000 * time.Millisecond)
 		data = append(data, newNeighbour)
 		go ou.forwardNewOuToCh(data)
@@ -242,12 +242,8 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 		go ou.forwardNewOuToCh(data)
 	}
 
-	//go ou.tellContactingOuOk(data)
 	
 	/*How to determine if the OU can join or not?? Should be about batteryLevel, bandwidth, number of nodes in the cluster etc..*/
-	/*if !listContains(others) {
-		fmt.Printf("New OU neighbour .\n")
-	}*/
 
 }
 
@@ -510,6 +506,7 @@ func tellSimulationUnitDead() {
 
 func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
 	fmt.Printf("\n### OU received a new neighbour and need to tell CH! ###\n")
+	fmt.Println("DATA: ", data)
 
 	for _, addr := range ou.Neighbours {
 		fmt.Printf("Telling each of OUs neighbours about the new data\n")
@@ -520,10 +517,10 @@ func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
 		data = append(data, ou.Addr)
 		//data = append(data, newNeighbour)
 
-		ouAddresses := data[:2]
-		if !listContains(ouAddresses, addr) {
-			data = append(data, addr)	
-		}
+		//ouAddresses := data[:2]
+		//if !listContains(ouAddresses, addr) {
+		//	data = append(data, addr)	
+		//}
 
 		fmt.Printf("[newNeighbour, RecNewNeighbour, sendToNeighbour]\n")
 		fmt.Println(data)
