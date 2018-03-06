@@ -181,7 +181,7 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### OU received a new neighbour (Handler) ###\n")
 	var newNeighbour string
-	var data []string
+	//var data []string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &newNeighbour)
 	if pc != 1 || rateErr != nil {
@@ -205,8 +205,8 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	} else {
 		fmt.Printf("\nOU is not CH so need forward info to CH!\n")
 		time.Sleep(1000 * time.Millisecond)
-		data = append(data, newNeighbour)
-		go ou.forwardNewOuToCh(data)
+		//data = append(data, newNeighbour)
+		go ou.forwardNewOuToCh(newNeighbour)
 	}
 
 }
@@ -233,13 +233,14 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 		fmt.Printf("\nOU is CH so sends OK to OU\n")
 		go ou.tellContactingOuOk(data)
 	} else {
-		fmt.Printf("\nOU is not CH, need to send futher through neighbours\n")
+		/*fmt.Printf("\nOU is not CH, need to send futher through neighbours\n")
 		ouAddresses := data[2:]
 		if !listContains(ouAddresses, ou.Addr) {
 			data = append(data, ou.Addr)
 			fmt.Printf("Appended addr to data. Forward new ou to CH\n")
 		}
-		go ou.forwardNewOuToCh(data)
+		go ou.forwardNewOuToCh(data)*/
+		go ou.tellContactingOuOk(data)
 	}
 
 	
@@ -504,7 +505,7 @@ func tellSimulationUnitDead() {
 	errorMsg("Post request dead OU: ", err)
 }
 
-func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
+/*func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
 	fmt.Printf("\n### OU received a new neighbour and need to tell CH! ###\n")
 	fmt.Println("DATA: ", data)
 
@@ -539,9 +540,9 @@ func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
 		_, err = http.Post(url, "string", addressBody)
 		errorMsg("Post request info to CH: ", err)	
 	}
-}
+}*/
 
-/*func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
+func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 	fmt.Printf("\n### OU received a new OU-neighbour and need to tell CH! ###\n")
 	url := fmt.Sprintf("http://%s/notifyCH", ou.ClusterHead)
 	fmt.Printf("Sending to url: %s \n", url)
@@ -564,7 +565,7 @@ func (ou *ObservationUnit) forwardNewOuToCh(data []string) {
 	//fmt.Printf("\n")
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Post request info to CH: ", err)
-}*/
+}
 
 
 /*Chose if node is the biggest and become chief..*/
