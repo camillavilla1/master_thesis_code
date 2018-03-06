@@ -418,7 +418,7 @@ func (ou *ObservationUnit) contactNewOu(newOu string) {
 }*/
 
 /*Tell contaction OU that it is ok to join the cluster*/
-func (ou *ObservationUnit) tellContactingOuOk(data []string) {
+/*func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 	fmt.Printf("\n### Tell contacting Neighbour that ok to connect ###\n")
 
 	recNeighbour := strings.Join(data[:1],"") //first element
@@ -452,19 +452,19 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 		errorMsg("Error posting to neighbour about connection ok: ", err)
 	}
 
-}
+}*/
 
 /*Tell contaction OU that it is ok to join the cluster*/
-/*func (ou *ObservationUnit) tellContactingOuOk(data []string) {
+func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 	fmt.Printf("\n### Tell contacting Neighbour that ok to connect ###\n")
 
 	recOu := strings.Join(data[:1],"") //first element
 	//fmt.Println(url2)
 	newOu := strings.Join(data[1:2],"") //middle element, nr 2
-	ouAddresses := strings.Join(data[2:],"") //all elements except the two first
+	//ouAddresses := strings.Join(data[2:],"") //all elements except the two first
  
 
-	url := fmt.Sprintf("http://%s/connectingOk", recNeighbour)
+	url := fmt.Sprintf("http://%s/connectingOk", recOu)
 	fmt.Printf("Sending to url: %s", url)
 
 	b, err := json.Marshal(newOu)
@@ -482,7 +482,7 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 	fmt.Printf("\n")
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Error posting to neighbour about connection ok: ", err)
-}*/
+}
 
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect if possible. */
 func (ou *ObservationUnit) contactNeighbour() {
