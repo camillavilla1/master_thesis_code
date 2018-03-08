@@ -192,15 +192,11 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	if ou.Addr == ou.ClusterHead {
 		fmt.Printf("OU is CH! Tell OU that it is a cluster member\n")
 		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
-		//fmt.Printf("OU is: ")
-		//fmt.Println(ou)
-		//fmt.Printf("\n")
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
 		fmt.Printf("\nOU is not CH so need forward info to CH!\n")
 		time.Sleep(1000 * time.Millisecond)
-		//data = append(data, newNeighbour)
 		go ou.forwardNewOuToCh(newNeighbour)
 	}
 
