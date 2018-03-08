@@ -476,6 +476,11 @@ func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 	errorMsg("Post request info to CH: ", err)
 }
 
+func saveBatterytime() {
+	fmt.Printf("Sleeping...\n")
+	time.Sleep(5 * time.Second)
+}
+
 func shutdownOu() {
 	fmt.Printf("Low battery, shutting down..\n")
 	os.Exit(0)
@@ -583,6 +588,7 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
 		    	fmt.Printf("Batterytime is 0..\n")
 		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.20) {
 		    	fmt.Printf("OU have low battery.. Need to sleep to save power\n")
+		    	//saveBatterytime()
 		    }
         case <- doneChan:
         	ou.BatteryTime = 0
@@ -595,11 +601,12 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
 }
 
 
-func simulateSleep() {
+/*func simulateSleep() {
 	timer := time.NewTimer(time.Second * 2)
     <- timer.C
     fmt.Println("Timer expired")
 }
+*/
 
 
 func setMaxProcs() int {
