@@ -24,7 +24,7 @@ var SimPort string
 
 var reachableHosts []string
 
-var batteryStart float64
+var batteryStart int64
 
 var wg sync.WaitGroup
 
@@ -36,7 +36,7 @@ type ObservationUnit struct {
 	Pid int `json:"Pid"`
 	ReachableNeighbours []string `json:"-"`
 	Neighbours []string `json:"-"`
-	BatteryTime float64 `json:"-"`
+	BatteryTime int64 `json:"-"`
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
 	ClusterHead string `json:"-"`
@@ -81,7 +81,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 
 func startServer() {
-	batteryStart = 3000.0
+	batteryStart = 50
 	hostaddress := ouHost + ouPort
 	//startedNodes = append(startedNodes, hostaddress)
 	
@@ -528,7 +528,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	fmt.Printf("Implement an algorithm to evaluate if OU can be CH..\n\n")
 
 	//if battery us under 20% cannot OU be CH
-	if ou.BatteryTime < (batteryStart*0.20) {
+	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
 		fmt.Printf("OU cannot be CH because of low battery\n")
 	} else {
 		fmt.Printf("Check if OU can be CH..\n")
@@ -566,36 +566,43 @@ func randEstimateBattery() float64 {
 }
 
 
-/*func (ou *ObservationUnit) batteryConsumption() {
-	battery := 3000
-	//battery := 100
+func (ou *ObservationUnit) batteryConsumption(seconds int64) {
+	timeChan := time.NewTimer(time.Second).C
+	tickChan := time.NewTicker(time.Millisecond * 1000).C
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	done := make(chan bool)
-	go func() {
-		time.Sleep(10 * time.Second)
-		done <- true
-	}()
-	for {
-		select {
-		case <-done:
-			fmt.Println("Done!")
-			return
-		case t := <-ticker.C:
-			fmt.Println("Current time: ", t)
-			battery -= 1
-			fmt.Println(battery)
-			ou.BatteryTime = battery
+	doneChan := make(chan bool)
+    go func() {
+        time.Sleep(time.Second * time.Duration(batteryStart))
+        doneChan <- true
+    }()
+    
+    for {
+        select {
+        case <- timeChan:
+            fmt.Println("Timer expired. OU is dead\n")
+        case <- tickChan:
+            //fmt.Println("Ticker ticked")
+		    ou.BatteryTime -= seconds
+		    fmt.Println(ou.BatteryTime)
 
-		}
-	}
-}*/
+		    if ou.BatteryTime == 0 {
+		    	fmt.Printf("Batterytime is 0..\n")
+		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.20) {
+		    	fmt.Printf("OU have low battery.. Need to sleep to save power\n")
+		    }
+        case <- doneChan:
+        	ou.BatteryTime = 0
+            fmt.Println("Done. OU is dead..\n")
+            //Send dead-signal to OU..
+            return
+      }
+    }
+}
 
-func (ou *ObservationUnit) batteryConsumption(seconds int) {
+/*func (ou *ObservationUnit) batteryConsumption(seconds int) {
 	ou.BatteryTime -= float64(seconds)
 	fmt.Println(ou.BatteryTime)
-}
+}*/
 
 
 func simulateSleep() {
