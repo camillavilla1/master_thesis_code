@@ -116,13 +116,11 @@ func startServer() {
 	go ou.batteryConsumption(1)
 	go ou.tellSimulationUnit()
 
-
 	err := http.ListenAndServe(ouPort, nil)
 	
 	if err != nil {
 		log.Panic(err)
 	}
-
 }
 
 
@@ -478,6 +476,11 @@ func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 	errorMsg("Post request info to CH: ", err)
 }
 
+func shutdownOu() {
+	fmt.Printf("Low battery, shutting down..\n")
+	os.Exit(0)
+}
+
 
 /*Chose if node is the biggest and become chief..*/
 func (ou *ObservationUnit) biggestId() bool {
@@ -557,15 +560,6 @@ func estimateLocation() float64 {
 }
 
 
-func randEstimateBattery() float64 {
-	//float64
-	rand.Seed(time.Now().UTC().UnixNano())
-	num := rand.Float64()
-
-	return num
-}
-
-
 func (ou *ObservationUnit) batteryConsumption(seconds int64) {
 	timeChan := time.NewTimer(time.Second).C
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
@@ -579,7 +573,7 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
     for {
         select {
         case <- timeChan:
-            fmt.Println("Timer expired. OU is dead\n")
+            fmt.Println("Timer expired.\n")
         case <- tickChan:
             //fmt.Println("Ticker ticked")
 		    ou.BatteryTime -= seconds
@@ -594,15 +588,11 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
         	ou.BatteryTime = 0
             fmt.Println("Done. OU is dead..\n")
             //Send dead-signal to OU..
+            go shutdownOu()
             return
       }
     }
 }
-
-/*func (ou *ObservationUnit) batteryConsumption(seconds int) {
-	ou.BatteryTime -= float64(seconds)
-	fmt.Println(ou.BatteryTime)
-}*/
 
 
 func simulateSleep() {
