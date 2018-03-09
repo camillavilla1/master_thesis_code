@@ -25,6 +25,7 @@ var SimPort string
 var reachableHosts []string
 
 var batteryStart int64
+var secondInterval int64
 
 var wg sync.WaitGroup
 
@@ -82,8 +83,8 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 func startServer() {
 	batteryStart = 50
+	secondInterval = 1
 	hostaddress := ouHost + ouPort
-	//startedNodes = append(startedNodes, hostaddress)
 	
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 	
@@ -104,7 +105,7 @@ func startServer() {
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
-	http.HandleFunc("/shutdown", shutdownHandler)
+	http.HandleFunc("/shutdown", ou.shutdownHandler)
 	http.HandleFunc("/reachableNeighbours", ou.reachableNeighboursHandler)
 	http.HandleFunc("/newNeighbour", ou.newNeighboursHandler)
 	http.HandleFunc("/noReachableNeighbours", ou.NoReachableNeighboursHandler)
@@ -113,7 +114,7 @@ func startServer() {
 	http.HandleFunc("/connectingOk", ou.connectionOkHandler)
 	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
 
-	go ou.batteryConsumption(1)
+	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -316,12 +317,12 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func shutdownHandler(w http.ResponseWriter, r *http.Request) {
+func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Request) {
 	// Consume and close body
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	tellSimulationUnitDead()
+	ou.tellSimulationUnitDead()
 
 	// Shut down
 	log.Printf("Received shutdown command, committing suicide.")
@@ -436,22 +437,28 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 
 
 /*Tell SOU that you're dead */
-func tellSimulationUnitDead() {
+func (ou *ObservationUnit) tellSimulationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachableOu", SimPort)
-	fmt.Printf("Sending 'I'm dead..' to url: %s", url)
+	fmt.Printf("Sending 'I'm dead..' to url: %s \n", url)
 	
-	nodeString := ouHost + ouPort
-	fmt.Printf("\nWith the string: %s\n", nodeString)
+	b, err := json.Marshal(ou)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	addressBody := strings.NewReader(nodeString)
+	//fmt.Println(string(b))
+
+	addressBody := strings.NewReader(string(b))
 
 	//fmt.Printf("\n")
-	_, err := http.Post(url, "string", addressBody)
+	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Post request dead OU: ", err)
 }
 
 
 func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
+	secondInterval = 2
 	fmt.Printf("\n### OU received a new OU-neighbour and need to tell CH! ###\n")
 	url := fmt.Sprintf("http://%s/notifyCH", ou.ClusterHead)
 	fmt.Printf("Sending to url: %s \n", url)
@@ -481,8 +488,9 @@ func saveBatterytime() {
 	time.Sleep(5 * time.Second)
 }
 
-func shutdownOu() {
+func (ou *ObservationUnit) shutdownOu() {
 	fmt.Printf("Low battery, shutting down..\n")
+	ou.tellSimulationUnitDead()
 	os.Exit(0)
 }
 
@@ -565,7 +573,7 @@ func estimateLocation() float64 {
 }
 
 
-func (ou *ObservationUnit) batteryConsumption(seconds int64) {
+func (ou *ObservationUnit) batteryConsumption() {
 	timeChan := time.NewTimer(time.Second).C
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 
@@ -581,7 +589,8 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
             fmt.Println("Timer expired.\n")
         case <- tickChan:
             //fmt.Println("Ticker ticked")
-		    ou.BatteryTime -= seconds
+            //fmt.Println(secondInterval)
+		    ou.BatteryTime -= secondInterval
 		    fmt.Println(ou.BatteryTime)
 
 		    if ou.BatteryTime == 0 {
@@ -594,19 +603,11 @@ func (ou *ObservationUnit) batteryConsumption(seconds int64) {
         	ou.BatteryTime = 0
             fmt.Println("Done. OU is dead..\n")
             //Send dead-signal to OU..
-            go shutdownOu()
+            go ou.shutdownOu()
             return
       }
     }
 }
-
-
-/*func simulateSleep() {
-	timer := time.NewTimer(time.Second * 2)
-    <- timer.C
-    fmt.Println("Timer expired")
-}
-*/
 
 
 func setMaxProcs() int {

@@ -86,21 +86,24 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 /*Remove OUnodes that are dead/don't run anymore*/
 func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
-	var addrString string
+	//var addrString string
+	var ou ObservationUnit
 
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
-	}
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+	
+	if err := json.Unmarshal(body, &ou); err != nil {
+        panic(err)
+    }
 
-	if listContains(runningNodes, addrString) {
-		runningNodes = removeElement(runningNodes, addrString)
+	if listContains(runningNodes, ou.Addr) {
+		runningNodes = removeElement(runningNodes, ou.Addr)
+		runningOus = removeObservationUnit(runningOus, ou.Addr)
 		numNodesRunning -= 1
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
 	fmt.Printf("Running nodes are: %v\n", runningNodes)
-
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -215,6 +218,7 @@ func errorMsg(s string, err error) {
 	}
 }
 
+
 /*Find distance between the current node and the nearest neighbours by its "GPS" coordinates - middle of the radio-range for the OU.*/
 func findDistance(startX float64, startY float64, stopX float64, stopY float64) float64 {
 	xx := math.Pow((startX-stopX), 2)
@@ -223,6 +227,7 @@ func findDistance(startX float64, startY float64, stopX float64, stopY float64) 
 	res := math.Sqrt(xx+yy)
 	return res
 }
+
 
 //Remove element in a slice
 func removeElement(s []string, r string) []string {
@@ -238,6 +243,18 @@ func removeElement(s []string, r string) []string {
 	return s
 }
 
+
+//Remove OU in a slice
+func removeObservationUnit(s []ObservationUnit, r string) []ObservationUnit {
+	for i := 0; i < len(s); i++ {
+		if s[i].Addr == r {
+			s = append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
+
 //Check if a value is in a list/slice and return true or false
 func listContains(s []string, e string) bool {
 	for _, a := range s {
@@ -247,6 +264,7 @@ func listContains(s []string, e string) bool {
 	}
 	return false
 }
+
 
 func printSlice(s []string) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
