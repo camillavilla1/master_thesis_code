@@ -18,7 +18,8 @@ var hostname string
 var ouPort string
 
 var numOU int64
-var numCH int64
+//var numCH int64
+var num int64
 
 
 var runningNodes []string
@@ -35,6 +36,7 @@ type ObservationUnit struct {
 	ReachableNeighbours []string
 	Xcor float64
 	Ycor float64
+	CHpercentage float64
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -42,6 +44,7 @@ type ObservationUnit struct {
 
 var runningOus []ObservationUnit
 
+var numCH = flag.Int("numCH", 0, "Number of Cluster Heads")
 
 func main() {
 	numNodesRunning = 0
@@ -52,12 +55,10 @@ func main() {
 	hostname = "localhost"
 
 	flag.StringVar(&ouPort, "Simport", ":8080", "Simulation port (prefix with colon)")
-	numOU := flag.Int("numOU", 0, "Numbers of OUs running")
-	numCH := flag.Int("numCH", 0, "Number of Cluster Heads")
+	//numOU := flag.Int("numOU", 0, "Numbers of OUs running")
 	flag.Parse()
 
-	fmt.Println(*numOU, *numCH)
-
+	fmt.Println(/**numOU, */*numCH)
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/notifySimulation", reachableOuHandler)
@@ -134,9 +135,35 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
+	go getClusterheadPercentage(ou)
 	go findNearestneighbours(ou)
 
 	//fmt.Printf("\n")
+}
+
+
+func getClusterheadPercentage(ou ObservationUnit) {
+	ou.CHpercentage = float64(*numCH)/100
+	fmt.Println(ou.CHpercentage)
+
+	fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
+	url := fmt.Sprintf("http://%s/clusterheadPercentage", ou.Addr)
+	fmt.Printf("SendingCH percentage to url: %s\n", url)
+
+	b, err := json.Marshal(ou.CHpercentage)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("with data: ")
+	fmt.Println(string(b))
+
+	addressBody := strings.NewReader(string(b))
+
+	res, err := http.Post(url, "string", addressBody)
+	errorMsg("Post request telling OU about CH percentage failed: ", err)
+	io.Copy(os.Stdout, res.Body)
+
 }
 
 /*Find nearest neighbour(s) that OUnode can contact.*/

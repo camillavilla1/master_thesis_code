@@ -45,6 +45,7 @@ type ObservationUnit struct {
 	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
 	PathToCh []string `json:"-"`
+	CHpercentage float64 `json:"-"`
 	//prevClusterHead string
 	//temperature int
 	//weather string
@@ -102,7 +103,8 @@ func startServer() {
 		IsClusterHead:			false,
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
-		PathToCh:				[]string{}}
+		PathToCh:				[]string{},
+		CHpercentage:			0}
 
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
@@ -115,6 +117,7 @@ func startServer() {
 	http.HandleFunc("/OuClusterMember", ou.ouClusterMemberHandler)
 	http.HandleFunc("/connectingOk", ou.connectionOkHandler)
 	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
+	http.HandleFunc("/clusterheadPercentage", ou.clusterheadPercentageHandler)
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -126,6 +129,25 @@ func startServer() {
 	}
 }
 
+
+func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("### Receiving cluster head percentage from Simulator ###\n")
+	var chPercentage float64
+
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+  
+    //fmt.Printf(string(body))  
+
+	if err := json.Unmarshal(body, &chPercentage); err != nil {
+        panic(err)
+    }
+
+    io.Copy(ioutil.Discard, r.Body)
+	defer r.Body.Close()
+
+	ou.CHpercentage = chPercentage
+}
 
 /*Receive neighbours from simulation. Contact neighbours to say "Hi, Here I am"*/
 func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
@@ -546,7 +568,6 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	fmt.Println("ID: ", ou.ID)
 	fmt.Println("Num of neighbours: ", len(ou.ReachableNeighbours))
 	fmt.Println("Clusterhead count: ", ou.ClusterHeadCount)
-	fmt.Printf("Implement an algorithm to evaluate if OU can be CH..\n\n")
 
 	//if battery us under 20% cannot OU be CH
 	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
@@ -563,10 +584,14 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	}
 }
 
+func (ou ObservationUnit) threshold() {
+	fmt.Printf("Threshold..")
+}
+
+/*Calculate battery percentage on OU*/
 func calcPercentage(batteryTime int64, maxBattery int64) float64 {
-	ret := (batteryTime/maxBattery)*100
-	fmt.Println("Return: ", ret)
-	return float64(ret)
+	ret := (float64(batteryTime)/float64(maxBattery))*100
+	return ret
 }
 
 //Hash address to be ID of node
