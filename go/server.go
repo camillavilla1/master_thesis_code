@@ -15,6 +15,7 @@ import (
 	"time"
 	"hash/fnv"
 	"encoding/json"
+	"math"
 )
 
 var ouPort string
@@ -136,8 +137,6 @@ func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r
 
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
-  
-    //fmt.Printf(string(body))  
 
 	if err := json.Unmarshal(body, &chPercentage); err != nil {
         panic(err)
@@ -156,8 +155,6 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
-  
-    //fmt.Printf(string(body))  
 
 	if err := json.Unmarshal(body, &tmpNeighbour); err != nil {
         panic(err)
@@ -168,8 +165,6 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 
     ou.ReachableNeighbours = tmpNeighbour
 
-    //fmt.Printf("%+v\n", ou)
-
 	time.Sleep(1000 * time.Millisecond)
 	go ou.contactNeighbour()
 }
@@ -177,15 +172,13 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 
 /*There are no OUs in range of the OU.. Set OU as CH*/
 func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\nNo neighbour Handler\n")
+	fmt.Printf("\n### OU received no neighbour (Handler) ###\n")
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
 	if pc != 1 || rateErr != nil {
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
-
-	//fmt.Printf(addrString)
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
@@ -206,7 +199,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	fmt.Printf(newNeighbour)
+	fmt.Printf("New neighbour is:", newNeighbour)
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
@@ -218,7 +211,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
-		fmt.Printf("\nOU is not CH so need forward info to CH!\n")
+		fmt.Printf("\nOU is not CH..\n")
 		time.Sleep(1000 * time.Millisecond)
 		go ou.forwardNewOuToCh(newNeighbour)
 	}
@@ -247,12 +240,11 @@ func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Reques
 		fmt.Printf("\nOU is CH so sends OK to OU\n")
 		go ou.tellContactingOuOk(data)
 	} else {
+		fmt.Printf("\nOU is not CH, but approve new neighbour anyway..\n")
 		go ou.tellContactingOuOk(data)
 	}
 
-	
 	/*How to determine if the OU can join or not?? Should be about batteryLevel, bandwidth, number of nodes in the cluster etc..*/
-
 }
 
 
@@ -271,7 +263,6 @@ func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Re
         panic(err)
     }
 
-    //ou.ReachableNeighbours = append(ou.ReachableNeighbours, newOu)
     ou.Neighbours = append(ou.Neighbours, newOu)
     go ou.contactNewOu(newOu)
 
@@ -288,8 +279,7 @@ func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter,
 	
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
-  
-    //mt.Printf(string(body))  
+   
 
 	if err := json.Unmarshal(body, &neighbour); err != nil {
         panic(err)
@@ -353,6 +343,7 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 	log.Printf("Received shutdown command, committing suicide.")
 	os.Exit(0)
 }
+
 
 func (ou *ObservationUnit) contactNewOu(newOu string) {
 	fmt.Printf("\n### Tell contacting OU that it's OK to connect to neighbour ###\n")
@@ -563,11 +554,6 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
 	fmt.Printf("\n### CLUSTER HEAD CALCULATION ####\n")
-	fmt.Println("Bandwidth: ", ou.Bandwidth)
-	fmt.Println("BatteryTime: ", ou.BatteryTime)
-	fmt.Println("ID: ", ou.ID)
-	fmt.Println("Num of neighbours: ", len(ou.ReachableNeighbours))
-	fmt.Println("Clusterhead count: ", ou.ClusterHeadCount)
 
 	//if battery us under 20% cannot OU be CH
 	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
@@ -575,24 +561,37 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	} else {
 		fmt.Printf("Check if OU can be CH..\n")
 		batPercent := calcPercentage(ou.BatteryTime, batteryStart)
-		fmt.Println("Battery percentage: ", batPercent)
+		randNum := randomFloat()
+		threshold := ou.threshold()
+
+		if randNum < threshold {
+			fmt.Printf("OU can be CH because of threshold..\n")
+		} else {
+			fmt.Printf("OU can not be CH because of threshold..\n")
+		}
 		time.Sleep(5 * time.Second)
-
-		//Algorithm to figure out if OU can be CH or not..
-		//if OU can be CH, than OU should broadcast to its neighbours..
-
 	}
 }
 
-func (ou ObservationUnit) threshold() {
-	fmt.Printf("Threshold..")
+
+func randomFloat() float64 {
+	num := rand.Float64()
+	return num
 }
+
+
+func (ou ObservationUnit) threshold() float64 {
+	threshold := ou.CHpercentage/1-(ou.CHpercentage*(math.Mod(float64(ou.ClusterHeadCount), 1/float64(ou.ClusterHeadCount))))
+	return threshold
+}
+
 
 /*Calculate battery percentage on OU*/
 func calcPercentage(batteryTime int64, maxBattery int64) float64 {
 	ret := (float64(batteryTime)/float64(maxBattery))*100
 	return ret
 }
+
 
 //Hash address to be ID of node
 func hashAddress(address string) uint32 {
@@ -640,7 +639,6 @@ func (ou *ObservationUnit) batteryConsumption() {
         case <- doneChan:
         	ou.BatteryTime = 0
             fmt.Println("Done. OU is dead..\n")
-            //Send dead-signal to OU..
             go ou.shutdownOu()
             return
       }
