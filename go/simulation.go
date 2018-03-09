@@ -30,7 +30,7 @@ var gridY int32
 
 type ObservationUnit struct {
 	Addr string
-	Id uint32
+	ID uint32
 	Pid int
 	ReachableNeighbours []string
 	Xcor float64
@@ -144,7 +144,7 @@ func findNearestneighbours(ou ObservationUnit) {
 	fmt.Printf("\n### Find Nearest Neighbours!!###\n")
 	for _, startedOu := range runningOus {
 		//fmt.Printf("Running OU are: %+v\n", runningOus)
-		if !(ou.Id == startedOu.Id) {
+		if !(ou.ID == startedOu.ID) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 
 			if distance < nodeRadius {

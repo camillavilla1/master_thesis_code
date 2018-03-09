@@ -33,7 +33,7 @@ var biggestAddress string
 
 type ObservationUnit struct {
 	Addr string `json:"Addr"`
-	Id uint32 `json:"Id"`
+	ID uint32 `json:"Id"`
 	Pid int `json:"Pid"`
 	ReachableNeighbours []string `json:"-"`
 	Neighbours []string `json:"-"`
@@ -42,6 +42,7 @@ type ObservationUnit struct {
 	Ycor float64 `json:"Ycor"`
 	ClusterHead string `json:"-"`
 	IsClusterHead bool `json:"-"`
+	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
 	PathToCh []string `json:"-"`
 	//prevClusterHead string
@@ -82,7 +83,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 
 func startServer() {
-	batteryStart = 50
+	batteryStart = 100
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
 	
@@ -90,7 +91,7 @@ func startServer() {
 	
 	ou := &ObservationUnit{
         Addr:					hostaddress,
-        Id:						hashAddress(hostaddress),
+        ID:						hashAddress(hostaddress),
         Pid:					os.Getpid(),
         BatteryTime:			batteryStart,
         ReachableNeighbours:	[]string{},
@@ -99,6 +100,7 @@ func startServer() {
         Ycor:					estimateLocation(),
     	ClusterHead:			"", 
 		IsClusterHead:			false,
+		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
 		PathToCh:				[]string{}}
 
@@ -302,9 +304,10 @@ func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http
 	fmt.Println(ou)
 	//fmt.Printf("\n")
 
-	//go ou.clusterHeadElection() //???
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
+
+	go ou.clusterHeadElection()
 }
 
 
@@ -414,7 +417,7 @@ func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
 
 /*Tell BS that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
-	fmt.Println("Battery is ", ou.BatteryTime)
+	//fmt.Println("Battery is ", ou.BatteryTime)
 
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
 	fmt.Printf("Sending to url: %s with info about OU.\n", url)
@@ -513,7 +516,7 @@ func (ou *ObservationUnit) biggestId() bool {
 		}
 	}
 
-	if biggest == ou.Id {
+	if biggest == ou.ID {
 		return true
 	} else {
 		return false
@@ -529,6 +532,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
 		ou.IsClusterHead = true
 		ou.ClusterHead = ou.Addr
+		ou.ClusterHeadCount += 1
 	} else {
 		//if ou.ClusterHead 
 		go ou.clusterHeadCalculation()
@@ -536,11 +540,12 @@ func (ou *ObservationUnit) clusterHeadElection() {
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
-	fmt.Printf("\n### Can OU become CH?? ####\n")
-	fmt.Println(ou.Bandwidth)
-	fmt.Println(ou.BatteryTime)
-	fmt.Println(ou.Id)
-	fmt.Println(len(ou.ReachableNeighbours))
+	fmt.Printf("\n### CLUSTER HEAD CALCULATION ####\n")
+	fmt.Println("Bandwidth: ", ou.Bandwidth)
+	fmt.Println("BatteryTime: ", ou.BatteryTime)
+	fmt.Println("ID: ", ou.ID)
+	fmt.Println("Num of neighbours: ", len(ou.ReachableNeighbours))
+	fmt.Println("Clusterhead count: ", ou.ClusterHeadCount)
 	fmt.Printf("Implement an algorithm to evaluate if OU can be CH..\n\n")
 
 	//if battery us under 20% cannot OU be CH
@@ -548,12 +553,20 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 		fmt.Printf("OU cannot be CH because of low battery\n")
 	} else {
 		fmt.Printf("Check if OU can be CH..\n")
+		batPercent := calcPercentage(ou.BatteryTime, batteryStart)
+		fmt.Println("Battery percentage: ", batPercent)
+		time.Sleep(5 * time.Second)
+
+		//Algorithm to figure out if OU can be CH or not..
+		//if OU can be CH, than OU should broadcast to its neighbours..
 
 	}
+}
 
-	//Algorithm to figure out if OU can be CH or not..
-	//if OU can be CH, than OU should broadcast to its neighbours..
-
+func calcPercentage(batteryTime int64, maxBattery int64) float64 {
+	ret := (batteryTime/maxBattery)*100
+	fmt.Println("Return: ", ret)
+	return float64(ret)
 }
 
 //Hash address to be ID of node
@@ -591,10 +604,10 @@ func (ou *ObservationUnit) batteryConsumption() {
             //fmt.Println("Ticker ticked")
             //fmt.Println(secondInterval)
 		    ou.BatteryTime -= secondInterval
-		    fmt.Println(ou.BatteryTime)
+		    //fmt.Println(ou.BatteryTime)
 
 		    if ou.BatteryTime == 0 {
-		    	fmt.Printf("Batterytime is 0..\n")
+		    	//fmt.Printf("Batterytime is 0..\n")
 		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.20) {
 		    	fmt.Printf("OU have low battery.. Need to sleep to save power\n")
 		    	//saveBatterytime()
@@ -631,6 +644,7 @@ func errorMsg(s string, err error) {
 		log.Fatal(s, err)
 	}
 }
+
 
 func printSlice(s []string) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
