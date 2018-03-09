@@ -119,6 +119,7 @@ func startServer() {
 	http.HandleFunc("/connectingOk", ou.connectionOkHandler)
 	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
 	http.HandleFunc("/clusterheadPercentage", ou.clusterheadPercentageHandler)
+	http.HandleFunc("/newCH", ou.newCHHandler)
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -128,6 +129,31 @@ func startServer() {
 	if err != nil {
 		log.Panic(err)
 	}
+}
+
+func (ou *ObservationUnit) newCHHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("### Receiving cluster head percentage from Simulator ###\n")
+	var newCH string
+
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+
+	if err := json.Unmarshal(body, &newCH); err != nil {
+        panic(err)
+    }
+
+    io.Copy(ioutil.Discard, r.Body)
+	defer r.Body.Close()
+
+	if ou.IsClusterHead {
+		fmt.Printf("There's a new CH in town..\n")
+		ou.IsClusterHead = false
+	}
+
+	ou.ClusterHead = newCH
+
+	//broadcast to OUs neighbours..
+	//go ou.broadcastNewCH()
 }
 
 
@@ -499,6 +525,27 @@ func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 	errorMsg("Post request info to CH: ", err)
 }
 
+func (ou *ObservationUnit) broadcastNewCH() {
+	for _, addr := range ou.Neighbours {
+		url := fmt.Sprintf("http://%s/newCH", addr)
+		fmt.Printf("Sending to url: %s \n", url)
+
+		b, err := json.Marshal(ou.ClusterHead)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+	//fmt.Println(string(b))
+
+	addressBody := strings.NewReader(string(b))
+
+	//fmt.Printf("\n")
+	_, err = http.Post(url, "string", addressBody)
+	errorMsg("Post request info to CH: ", err)
+	}
+}
+
 func saveBatterytime() {
 	fmt.Printf("Sleeping...\n")
 	time.Sleep(5 * time.Second)
@@ -560,12 +607,15 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 		fmt.Printf("OU cannot be CH because of low battery\n")
 	} else {
 		fmt.Printf("Check if OU can be CH..\n")
-		batPercent := calcPercentage(ou.BatteryTime, batteryStart)
-		randNum := randomFloat()
+		//batPercent := calcPercentage(ou.BatteryTime, batteryStart)
+		randNum := rand.Float64()
 		threshold := ou.threshold()
 
 		if randNum < threshold {
 			fmt.Printf("OU can be CH because of threshold..\n")
+			ou.IsClusterHead = true
+			ou.ClusterHead = ou.Addr
+			go ou.broadcastNewCH()
 		} else {
 			fmt.Printf("OU can not be CH because of threshold..\n")
 		}
@@ -573,11 +623,6 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	}
 }
 
-
-func randomFloat() float64 {
-	num := rand.Float64()
-	return num
-}
 
 
 func (ou ObservationUnit) threshold() float64 {
@@ -611,7 +656,7 @@ func estimateLocation() float64 {
 
 
 func (ou *ObservationUnit) batteryConsumption() {
-	timeChan := time.NewTimer(time.Second).C
+	//timeChan := time.NewTimer(time.Second).C
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 
 	doneChan := make(chan bool)
@@ -622,8 +667,8 @@ func (ou *ObservationUnit) batteryConsumption() {
     
     for {
         select {
-        case <- timeChan:
-            fmt.Println("Timer expired.\n")
+        //case <- timeChan:
+            //fmt.Println("Timer expired.\n")
         case <- tickChan:
             //fmt.Println("Ticker ticked")
             //fmt.Println(secondInterval)
