@@ -42,6 +42,7 @@ type ObservationUnit struct {
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
 	ClusterHead string `json:"-"`
+	OldClusterHead string `json:"-"`
 	IsClusterHead bool `json:"-"`
 	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
@@ -50,6 +51,7 @@ type ObservationUnit struct {
 	//prevClusterHead string
 	//temperature int
 	//weather string
+	//AccumulateData map[int]string `json:"-"`
 }
 
 
@@ -101,6 +103,7 @@ func startServer() {
         Xcor:					estimateLocation(),
         Ycor:					estimateLocation(),
     	ClusterHead:			"", 
+    	OldClusterHead:			"",
 		IsClusterHead:			false,
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
@@ -132,7 +135,7 @@ func startServer() {
 }
 
 func (ou *ObservationUnit) newCHHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("### Receiving cluster head percentage from Simulator ###\n")
+	fmt.Printf("### Receiving a new CH from a neighbour.. ###\n")
 	var newCH string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -150,10 +153,14 @@ func (ou *ObservationUnit) newCHHandler(w http.ResponseWriter, r *http.Request) 
 		ou.IsClusterHead = false
 	}
 
+	ou.OldClusterHead = ou.ClusterHead
 	ou.ClusterHead = newCH
 
-	//broadcast to OUs neighbours..
 	//go ou.broadcastNewCH()
+	if len(ou.Neighbours) > 1 {
+		//broadcast to OUs neighbours..
+		go ou.broadcastNewCH()
+	}
 }
 
 
@@ -225,14 +232,14 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	fmt.Printf("New neighbour is:", newNeighbour)
+	fmt.Println("New neighbour is:", newNeighbour)
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
 	//Notify CH to figure out if the OU can join the cluster. 
 	if ou.Addr == ou.ClusterHead {
-		fmt.Printf("OU is CH! Tell OU that it is a cluster member\n")
+		fmt.Printf("\nOU is CH! Tell OU that it is a cluster member\n")
 		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
@@ -295,6 +302,7 @@ func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Re
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
+
 }
 
 
@@ -319,6 +327,8 @@ func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter,
 
     io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
+
+	go ou.clusterHeadElection()
 }
 
 
@@ -585,8 +595,6 @@ func (ou *ObservationUnit) biggestId() bool {
 
 
 func (ou *ObservationUnit) clusterHeadElection() {
-	fmt.Println("Battery is ", ou.BatteryTime)
-
 	fmt.Printf("\n### Cluster Head Election ###\n")
 	if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
@@ -677,8 +685,8 @@ func (ou *ObservationUnit) batteryConsumption() {
 
 		    if ou.BatteryTime == 0 {
 		    	//fmt.Printf("Batterytime is 0..\n")
-		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.20) {
-		    	fmt.Printf("OU have low battery.. Need to sleep to save power\n")
+		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.30) {
+		    	fmt.Printf("OU have low battery.. (Need to sleep to save power)\n")
 		    	//saveBatterytime()
 		    }
         case <- doneChan:
