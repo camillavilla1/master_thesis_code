@@ -37,7 +37,7 @@ End with an example of getting some data out of the system or using it for a lit
 
 ## Running the program/tests
 
-Start with the simulator:
+- Start with the simulator:
     - `numCH`: number of cluster heads (e.g.: 5 equals 5%)
 
 ```
@@ -45,7 +45,7 @@ go run simulation.go -numCH=5
 
 ```
 
-Run observationunits:
+- Run observationunits:
     - `-Simport=8080`: port of Simulator
     - `-host=localhost`: host of OU
     - `-port=8082`: port of OU
