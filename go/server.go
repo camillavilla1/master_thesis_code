@@ -42,7 +42,7 @@ type ObservationUnit struct {
 	Xcor float64 `json:"Xcor"`
 	Ycor float64 `json:"Ycor"`
 	ClusterHead string `json:"-"`
-	OldClusterHead string `json:"-"`
+	OldClusterHead []string `json:"-"`
 	IsClusterHead bool `json:"-"`
 	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
@@ -103,7 +103,7 @@ func startServer() {
         Xcor:					estimateLocation(),
         Ycor:					estimateLocation(),
     	ClusterHead:			"", 
-    	OldClusterHead:			"",
+    	OldClusterHead:			[]string{},
 		IsClusterHead:			false,
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
@@ -153,11 +153,15 @@ func (ou *ObservationUnit) newCHHandler(w http.ResponseWriter, r *http.Request) 
 		ou.IsClusterHead = false
 	}
 
-	ou.OldClusterHead = ou.ClusterHead
+	if !listContains(ou.OldClusterHead, ou.ClusterHead) {
+		ou.OldClusterHead = append(ou.OldClusterHead, ou.ClusterHead)
+	}
 	ou.ClusterHead = newCH
 
+	fmt.Println(ou)
+
 	//go ou.broadcastNewCH()
-	if len(ou.Neighbours) > 1 {
+	if len(ou.Neighbours) >= 1 {
 		//broadcast to OUs neighbours..
 		go ou.broadcastNewCH()
 	}
@@ -240,7 +244,9 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	//Notify CH to figure out if the OU can join the cluster. 
 	if ou.Addr == ou.ClusterHead {
 		fmt.Printf("\nOU is CH! Tell OU that it is a cluster member\n")
-		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
+		if !listContains(ou.ReachableNeighbours, newNeighbour) {
+			ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
+		}
 		time.Sleep(1000 * time.Millisecond)
 		go ou.tellOuClusterMember(newNeighbour)
 	} else {
@@ -296,7 +302,9 @@ func (ou *ObservationUnit) connectionOkHandler(w http.ResponseWriter, r *http.Re
         panic(err)
     }
 
-    ou.Neighbours = append(ou.Neighbours, newOu)
+    if !listContains(ou.Neighbours, newOu) {
+    	ou.Neighbours = append(ou.Neighbours, newOu)
+    }
     go ou.contactNewOu(newOu)
 
 
@@ -537,22 +545,24 @@ func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 
 func (ou *ObservationUnit) broadcastNewCH() {
 	for _, addr := range ou.Neighbours {
-		url := fmt.Sprintf("http://%s/newCH", addr)
-		fmt.Printf("Sending to url: %s \n", url)
+		if ou.ClusterHead != addr {
+			url := fmt.Sprintf("http://%s/newCH", addr)
+			fmt.Printf("Sending to url: %s \n", url)
 
-		b, err := json.Marshal(ou.ClusterHead)
-		if err != nil {
-			fmt.Println(err)
-			return
+			b, err := json.Marshal(ou.ClusterHead)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			//fmt.Println(string(b))
+
+			addressBody := strings.NewReader(string(b))
+
+			//fmt.Printf("\n")
+			_, err = http.Post(url, "string", addressBody)
+			errorMsg("Post request info to CH: ", err)
 		}
-
-	//fmt.Println(string(b))
-
-	addressBody := strings.NewReader(string(b))
-
-	//fmt.Printf("\n")
-	_, err = http.Post(url, "string", addressBody)
-	errorMsg("Post request info to CH: ", err)
 	}
 }
 
@@ -619,11 +629,13 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 		randNum := rand.Float64()
 		threshold := ou.threshold()
 
-		if randNum < threshold {
+		//THRESHOLD SHOULD BE BIGGER
+		if randNum > threshold {
 			fmt.Printf("OU can be CH because of threshold..\n")
 			ou.IsClusterHead = true
 			ou.ClusterHead = ou.Addr
 			go ou.broadcastNewCH()
+			fmt.Println(ou)
 		} else {
 			fmt.Printf("OU can not be CH because of threshold..\n")
 		}
