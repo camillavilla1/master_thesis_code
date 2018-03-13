@@ -54,6 +54,8 @@ type ObservationUnit struct {
 	//AccumulateData map[int]string `json:"-"`
 }
 
+var didContact []string
+
 
 func main() {
 
@@ -545,7 +547,8 @@ func (ou *ObservationUnit) forwardNewOuToCh(newNeighbour string) {
 
 func (ou *ObservationUnit) broadcastNewCH() {
 	for _, addr := range ou.Neighbours {
-		if ou.ClusterHead != addr {
+		if !listContains(didContact, addr) {
+			didContact = append(didContact, addr)
 			url := fmt.Sprintf("http://%s/newCH", addr)
 			fmt.Printf("Sending to url: %s \n", url)
 
@@ -606,7 +609,7 @@ func (ou *ObservationUnit) biggestId() bool {
 
 func (ou *ObservationUnit) clusterHeadElection() {
 	fmt.Printf("\n### Cluster Head Election ###\n")
-	if len(ou.ReachableNeighbours) == 0 {
+	/*if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
 		ou.IsClusterHead = true
 		ou.ClusterHead = ou.Addr
@@ -614,7 +617,8 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	} else {
 		//if ou.ClusterHead 
 		go ou.clusterHeadCalculation()
-	}
+	}*/
+	go ou.clusterHeadCalculation()
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
