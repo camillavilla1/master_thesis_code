@@ -55,7 +55,7 @@ func main() {
 	hostname = "localhost"
 
 	flag.StringVar(&ouPort, "Simport", ":8080", "Simulation port (prefix with colon)")
-	//numOU := flag.Int("numOU", 0, "Numbers of OUs running")
+
 	flag.Parse()
 
 	fmt.Println(/**numOU, */*numCH)
@@ -79,8 +79,6 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	//body := "Simulation Unit running on " + hostname
-	//fmt.Fprintf(w, "Simulation IndexHandler", body)
 	fmt.Fprintf(w, "Index Handler\n")
 }
 
@@ -175,25 +173,14 @@ func findNearestneighbours(ou ObservationUnit) {
 			distance := findDistance(ou.Xcor, ou.Ycor, startedOu.Xcor, startedOu.Ycor)
 
 			if distance < nodeRadius {
-				//fmt.Printf("--- OU IS IN RANGE!! ---\n")
 				ou.ReachableNeighbours = append(ou.ReachableNeighbours, startedOu.Addr)
-			} //else {
-			//	fmt.Printf("OU is NOT in range..\n")
-				/*Should tell node that no OU is available..
-				noNeighbours(ou)*/
-				//ou.Neighbours = append(ou.Neighbours, startedOu.Addr)
-				//go tellOuNoNeighbours(ou)
-			//}
-		} /*else {
-			fmt.Printf("Node is the same as in list..\n")
-			//go tellOuNoNeighbours(ou)
-		}*/
+			}
+		}
 	}
 
 	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.ReachableNeighbours) >= 1 {
 		fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
-		//printSlice(ou.Neighbours)
 		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutReachableNeighbour(ou)	
