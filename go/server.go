@@ -256,7 +256,7 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	ou.IsClusterHead = false
 
 	fmt.Println("OU: ", ou)
-	fmt.Println("\nPKT: ", pkt)
+	//fmt.Println("\nPKT: ", pkt)
 
 	if len(ou.Neighbours) > 1 {
 		go ou.broadcastNewLeader(pkt)
@@ -409,7 +409,7 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 			}
 
 			addressBody := strings.NewReader(string(b))
-			fmt.Println("\nAddressbody: ", addressBody)
+			//fmt.Println("\nAddressbody: ", addressBody)
 
 			_, err = http.Post(url, "string", addressBody)
 			//errorMsg("Error posting to neighbour ", err)
