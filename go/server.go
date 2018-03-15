@@ -115,12 +115,6 @@ func startServer() {
 		PathToCh:				[]string{},
 		CHpercentage:			0}
 
-	/*pkt := &CHpkt{
-		Path:	 		[]string{},
-		Source:			"",
-		Destination:	"",
-		ClusterHead:	""}*/
-
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
@@ -234,7 +228,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 }
 
-
+/*Receive a new leader from a neighbour. Update clusterhead and clusterhead-status*/
 func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### Receive a broadcast about a new leader ###\n")
 	var pkt CHpkt
@@ -379,7 +373,6 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 		time.Sleep(2 * time.Second)
 		go ou.clusterHeadElection()
 	}
-
 }
 
 /*Broadcast new CH message to neighbours*/
