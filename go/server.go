@@ -112,12 +112,10 @@ func startServer() {
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/shutdown", ou.shutdownHandler)
 	http.HandleFunc("/reachableNeighbours", ou.reachableNeighboursHandler)
+	http.HandleFunc("/clusterheadPercentage", ou.clusterheadPercentageHandler)
 	http.HandleFunc("/newNeighbour", ou.newNeighboursHandler)
 	http.HandleFunc("/noReachableNeighbours", ou.NoReachableNeighboursHandler)
-	http.HandleFunc("/OuClusterMember", ou.ouClusterMemberHandler)
 	http.HandleFunc("/connectingOk", ou.connectingOkHandler)
-	http.HandleFunc("/connectingToNeighbourOk", ou.connectingToNeighbourOkHandler)
-	http.HandleFunc("/clusterheadPercentage", ou.clusterheadPercentageHandler)
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -203,146 +201,57 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	//Notify CH to figure out if the OU can join the cluster. 
-	/*if ou.Addr == ou.ClusterHead {
-		fmt.Printf("OU is CH! Tell OU that it is a cluster member\n")
-		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
-		time.Sleep(1000 * time.Millisecond)
-		go ou.tellOuClusterMember(newNeighbour)
-	} else {
-		fmt.Printf("\nOU is not CH..\n")
-		time.Sleep(1000 * time.Millisecond)
-		go ou.forwardNewOuToCh(newNeighbour)
-	}*/
-	time.Sleep(1000 * time.Millisecond)
-	//go ou.tellOuClusterMember(newNeighbour)
-
 	var data []string
 
 	data = append(data, ou.Addr)
 	data = append(data, newNeighbour)
 	data = append(data, ou.ClusterHead)
 
-	go ou.tellContactingOuOk(data)
+	//fmt.Printf("\n[ou.addr, newNeighbour, clusterhead]\n")
 
-}
-
-
-/*Decide if new OU can join the cluster or not..*/
-/*func (ou *ObservationUnit) NotifyCHHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### CH Handler receive info about new OU ###\n")
-
-	var data []string
-	body, err := ioutil.ReadAll(r.Body)
-    errorMsg("readall: ", err)
-  
-    fmt.Printf(string(body))  
-
-	if err := json.Unmarshal(body, &data); err != nil {
-        panic(err)
-    }
-
-    io.Copy(ioutil.Discard, r.Body)
-	defer r.Body.Close()
-
-	if ou.IsClusterHead {
-		fmt.Printf("\nOU is CH so sends OK to OU\n")
-		go ou.tellContactingOuOk(data)
-	} else {
-		fmt.Printf("\nOU is not CH, but approve new neighbour anyway..\n")
-		go ou.tellContactingOuOk(data)
+	if !listContains(ou.Neighbours, newNeighbour) {
+		ou.Neighbours = append(ou.Neighbours, newNeighbour)
 	}
 
-	/*How to determine if the OU can join or not?? Should be about batteryLevel, bandwidth, number of nodes in the cluster etc..
-}*/
+	time.Sleep(1000 * time.Millisecond)
+	go ou.tellContactingOuOk(data)
+	fmt.Println(ou)
+
+}
 
 
 /*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Received OK from neighbour. Connect OU to new OU-neighbour OK (Handler)!!\n")
+	fmt.Printf("\n### Received OK from neighbour. Connect OU to new neighbour!\n")
 
 	var data []string
 	
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
   
-    fmt.Printf(string(body))  
+  	//fmt.Printf("\n[ou.neighbour, yourself, clusterhead]\n")
+    //fmt.Printf(string(body))  
+    //fmt.Printf("\n")
 
 	if err := json.Unmarshal(body, &data); err != nil {
         panic(err)
     }
 
-    //recOu := strings.Join(data[:1],"") //first element
-	//fmt.Println(url2)
-	newOu := strings.Join(data[1:2],"") //middle element, nr 2
-	//clusterHead := strings.Join(data[2:],"")
-
-	if !listContains(ou.Neighbours, newOu) {
-    	ou.Neighbours = append(ou.Neighbours, newOu)
-	}
-
-    go ou.contactNewOu(data)
-
-
-	io.Copy(ioutil.Discard, r.Body)
-	defer r.Body.Close()
-}
-
-
-func (ou *ObservationUnit) connectingToNeighbourOkHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Receive from OU that it's OK to connection to neighbour OK (Handler)!! ###\n")
-
-	var data []string
-	
-	body, err := ioutil.ReadAll(r.Body)
-    errorMsg("readall: ", err)
-   
-
-	if err := json.Unmarshal(body, &data); err != nil {
-        panic(err)
-    }
-
-    recOu := strings.Join(data[:1],"") //first element
+    neighOu := strings.Join(data[:1],"") //first element
 	//fmt.Println(url2)
 	//newOu := strings.Join(data[1:2],"") //middle element, nr 2
 	clusterHead := strings.Join(data[2:],"")
+
+	if !listContains(ou.Neighbours, neighOu) {
+    	ou.Neighbours = append(ou.Neighbours, neighOu)
+	}
+
 	ou.ClusterHead = clusterHead
-
-    if !listContains(ou.Neighbours, recOu) {
-    	ou.Neighbours = append(ou.Neighbours, recOu)
-    }
-
     fmt.Println(ou)
 
-    io.Copy(ioutil.Discard, r.Body)
-	defer r.Body.Close()
-}
-
-
-func (ou *ObservationUnit) ouClusterMemberHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\nOU received vaidation from neighbour and is now a Cluster Member (Handler)!!\n")
-	var clusterHead string
-
-	pc, rateErr := fmt.Fscanf(r.Body, "%s", &clusterHead)
-	if pc != 1 || rateErr != nil {
-		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
-	}
-
-	//fmt.Printf(clusterHead)
-
-	/*Add to list over OUs neighbours that he can connect with..*/
-	if !listContains(ou.Neighbours, clusterHead) {
-		ou.Neighbours = append(ou.Neighbours, clusterHead)
-	}
-
-	ou.ClusterHead = clusterHead
-	fmt.Println(ou)
-	//fmt.Printf("\n")
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
-
-	go ou.clusterHeadElection()
 }
 
 
@@ -368,45 +277,16 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 }
 
 
-func (ou *ObservationUnit) contactNewOu(data []string) {
-	fmt.Printf("\n### Tell contacting OU that it's OK to connect to neighbour ###\n")
-	//recOu := strings.Join(data[:1],"") //first element
-	//fmt.Println(url2)
-	newOu := strings.Join(data[1:2],"") //middle element, nr 2
-	//clusterHead := strings.Join(data[2:],"")
-
-	url := fmt.Sprintf("http://%s/connectingToNeighbourOk", newOu)
-	fmt.Printf("Sending to url: %s \n", url)
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	//fmt.Println(string(b))
-
-	addressBody := strings.NewReader(string(b))
-
-
-	//fmt.Printf("\n")
-	_, err = http.Post(url, "string", addressBody)
-	errorMsg("Error posting to new OU about connection ok: ", err)
-}
-
-
 /*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
-	fmt.Printf("\n### Tell contacting Neighbour that ok to connect ###\n")
+	fmt.Printf("\n### Tell contacting Neighbour that it's ok to connect ###\n")
 
-	recOu := strings.Join(data[:1],"") //first element
-	//fmt.Println(url2)
-	//newOu := strings.Join(data[1:2],"") //middle element, nr 2
-	//clusterHead := strings.Join(data[2:],"")
-	//ouAddresses := strings.Join(data[2:],"") //all elements except the two first
+	//recOu := strings.Join(data[:1],"") //first element
+	newOu := strings.Join(data[1:2],"") //middle element, nr 2
+	//clusterHead := strings.Join(data[2:],"") //all elements except the two first
  
 
-	url := fmt.Sprintf("http://%s/connectingOk", recOu)
+	url := fmt.Sprintf("http://%s/connectingOk", newOu)
 	fmt.Printf("Sending to url: %s", url)
 
 	b, err := json.Marshal(data)
@@ -415,8 +295,8 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 		return
 	}
 
-	fmt.Printf("\n")
-	fmt.Println(string(b))
+	//fmt.Printf("\n")
+	//fmt.Println(string(b))
 
 	addressBody := strings.NewReader(string(b))
 
@@ -429,7 +309,9 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect if possible. */
 func (ou *ObservationUnit) contactNeighbour() {
 	fmt.Printf("\n### Contacting neighbours.. ###\n")
+	var i int
 	for _, neighbour := range ou.ReachableNeighbours {
+		i += 1
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		fmt.Printf("\nContacting neighbour url: %s ", url)	
 		fmt.Printf(" with body: %s \n", ou.Addr)
@@ -437,26 +319,20 @@ func (ou *ObservationUnit) contactNeighbour() {
 		addressBody := strings.NewReader(ou.Addr)
 
 		//fmt.Printf("\n")
-		//_, err := http.Post(url, "string", addressBody)
-		http.Post(url, "string", addressBody)
+		_, err := http.Post(url, "string", addressBody)
+		//http.Post(url, "string", addressBody)
 		//errorMsg("Error posting to neighbour ", err)
-		//if err != nil {
-		//	break
-		//}
+		if err != nil {
+			continue
+		}
 	}
-}
+	fmt.Printf("\nContacted all neighbours.. Some may be unreachable due to death or sleep..\n")
 
-func (ou *ObservationUnit) tellOuClusterMember(newNeighbour string) {
-	fmt.Println("\n### Tell new OU that it is a cluster member! ###\n")
-	url := fmt.Sprintf("http://%s/OuClusterMember", newNeighbour)
-	fmt.Printf("Sending to url: %s", url)
+	if i == len(ou.ReachableNeighbours) {
+		fmt.Printf("Have contacted all neighbours, either sucessfully or unsucessfully.. Check if node can be cluster head.\n")
+		go ou.clusterHeadElection()
+	}
 
-	fmt.Printf(" with body: %s \n", ou.ClusterHead)
-	addressBody := strings.NewReader(ou.ClusterHead)
-	//fmt.Printf("\n")
-
-	_, err := http.Post(url, "string", addressBody)
-	errorMsg("Error posting to neighbour ", err)
 }
 
 
@@ -544,8 +420,6 @@ func (ou *ObservationUnit) biggestId() bool {
 
 
 func (ou *ObservationUnit) clusterHeadElection() {
-	fmt.Println("Battery is ", ou.BatteryTime)
-
 	fmt.Printf("\n### Cluster Head Election ###\n")
 	if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
@@ -572,6 +446,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 
 		if randNum < threshold {
 			fmt.Printf("OU can be CH because of threshold..\n")
+			//broadcast to neighbours..
 		} else {
 			fmt.Printf("OU can not be CH because of threshold..\n")
 		}
@@ -617,7 +492,7 @@ func estimateLocation() float64 {
 
 
 func (ou *ObservationUnit) batteryConsumption() {
-	timeChan := time.NewTimer(time.Second).C
+	//timeChan := time.NewTimer(time.Second).C
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 
 	doneChan := make(chan bool)
@@ -628,8 +503,8 @@ func (ou *ObservationUnit) batteryConsumption() {
     
     for {
         select {
-        case <- timeChan:
-            fmt.Println("Timer expired.\n")
+        //case <- timeChan:
+        //    fmt.Println("Timer expired.\n")
         case <- tickChan:
             //fmt.Println("Ticker ticked")
             //fmt.Println(secondInterval)
