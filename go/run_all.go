@@ -42,8 +42,9 @@ func main() {
 
 			var out bytes.Buffer
 			var stderr bytes.Buffer
-			cmnd.Stdout = &out
-			cmnd.Stderr = &stderr
+			cmnd.Stdout = os.Stdout
+			cmnd.Stderr = os.Stderr
+			cmnd.Stdin = os.Stdin
 
 			err := cmnd.Start()
 		    errorMsg("Error starting process: ", err)
