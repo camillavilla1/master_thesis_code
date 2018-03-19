@@ -40,7 +40,7 @@ go run simulation.go -numCH=5
 
 ```
 
-- Run observationunits:
+- Run one observationunit:
     - `-Simport=8080`: port of Simulator
     - `-host=localhost`: host of OU
     - `-port=8082`: port of OU
@@ -49,6 +49,15 @@ go run simulation.go -numCH=5
 go run server.go run -Simport=8080 -host=localhost -port=:8082
 
 ```
+
+- Run multiple observationunits:
+	- `3`: number of observationunits
+
+```
+go run run_all.go 3
+
+```
+
 
 ## Built With
 
