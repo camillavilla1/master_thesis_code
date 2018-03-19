@@ -678,8 +678,11 @@ func (ou *ObservationUnit) measureData() {
         case <- tickChan:
         	start := time.Now().Format("2006-01-02 15:04:05")//.Format(time.RFC850)
         	fmt.Println(start)
-        	ou.temperatureSensor()
-        	ou.weatherSensor()
+        	temp := ou.temperatureSensor()
+        	weather := ou.weatherSensor()
+        	fmt.Println(temp, weather)
+
+        	//Add values to some kind of map.. 
 
         case <- doneChan:
             return
@@ -688,7 +691,7 @@ func (ou *ObservationUnit) measureData() {
 }
 
 
-func (ou *ObservationUnit) weatherSensor() {
+func (ou *ObservationUnit) weatherSensor() string {
 	weather := make([]string, 0)
 	weather = append(weather,
     "Sunny",
@@ -699,16 +702,18 @@ func (ou *ObservationUnit) weatherSensor() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
     rand_weather := weather[rand.Intn(len(weather))]
-	ou.Weather = append(ou.Weather, rand_weather)
-	fmt.Println("Weather: ", ou.Weather)
+	//ou.Weather = append(ou.Weather, rand_weather)
+	//fmt.Println("Weather: ", ou.Weather)
+	return rand_weather
 }
 
 
-func (ou *ObservationUnit) temperatureSensor() {
+func (ou *ObservationUnit) temperatureSensor() int {
 	rand_number := randomInt(-30, 20)
-	ou.Temperature = append(ou.Temperature, rand_number)
+	//ou.Temperature = append(ou.Temperature, rand_number)
 	//fmt.Println(rand_number)
-	fmt.Println("Temperature: ", ou.Temperature)
+	//fmt.Println("Temperature: ", ou.Temperature)
+	return rand_number
 }
 
 

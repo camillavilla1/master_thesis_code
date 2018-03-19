@@ -26,8 +26,8 @@ func main() {
 	errorMsg("Str to int: ", err)
 
 	port := 8081
-	port2 := random(29170, 29998)
-	fmt.Println("Random port number: ", port2)
+	//port2 := random(29170, 29998)
+	//fmt.Println("Random port number: ", port2)
 	for i := 0; i < numServers2; i++ {
 		//fmt.Println(i)
 
@@ -60,17 +60,12 @@ func main() {
 			} else {
 				fmt.Println("Result: " + out.String())
 			}
-
-			/*cmndIn, _ := cmnd.StdinPipe()
-		    cmndOut, _ := cmnd.StdoutPipe()
-		    fmt.Println(cmndIn)
-		    fmt.Println(cmndOut)*/
 		} else {
 			fmt.Printf("Port is taken... Try again or something.\n")
 		}
 	}
 	/*Need this so the program doesn't quit before the OU are done..*/
-	time.Sleep(5000 * time.Millisecond)
+	time.Sleep(1800 * time.Second)
 	printSlice(taken_port)
 }
 
