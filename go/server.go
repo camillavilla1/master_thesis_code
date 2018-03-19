@@ -48,8 +48,8 @@ type ObservationUnit struct {
 	PathToCh []string `json:"-"`
 	CHpercentage float64 `json:"-"`
 	//prevClusterHead string
-	//temperature int
-	//weather string
+	Temperature []int `json:"-"`
+	Weather []string `json:"-"`
 }
 
 type CHpkt struct{
@@ -92,6 +92,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 
 func startServer() {
+	/*1800 = 30 min, 3600 in 60 min*/
 	batteryStart = 100
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
@@ -113,7 +114,9 @@ func startServer() {
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
 		PathToCh:				[]string{},
-		CHpercentage:			0}
+		CHpercentage:			0,
+		Temperature:			[]int{},
+		Weather:				[]string{}}
 
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
@@ -129,6 +132,7 @@ func startServer() {
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
+	go ou.measureData()
 
 	err := http.ListenAndServe(ouPort, nil)
 	
@@ -139,7 +143,7 @@ func startServer() {
 
 /*Get cluster percentage from Simulation.*/
 func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("### Receiving cluster head percentage from Simulator ###\n")
+	//fmt.Printf("\n### Receiving cluster head percentage from Simulator ###\n")
 	var chPercentage float64
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -366,7 +370,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 			continue
 		}
 	}
-	fmt.Printf("\nContacted all neighbours.. Some may be unreachable due to death or sleep..\n")
+	//fmt.Printf("\nContacted all neighbours.. Some may be unreachable due to death or sleep..\n")
 
 	if i == len(ou.ReachableNeighbours) {
 		fmt.Printf("Have contacted all neighbours, either sucessfully or unsucessfully.. Check if node can be cluster head.\n")
@@ -658,7 +662,39 @@ func retrieveAddresses(list []string, addr string) []string {
 }
 
 
-func weather_sensor() {
+func (ou *ObservationUnit) measureData() {
+	tickChan := time.NewTicker(time.Second * 3).C
+
+	doneChan := make(chan bool)
+    go func() {
+        time.Sleep(time.Second * time.Duration(batteryStart))
+        doneChan <- true
+    }()
+    
+    for {
+        select {
+        //case <- timeChan:
+        //    fmt.Println("Timer expired.\n")
+        case <- tickChan:
+        	start := time.Now().Format("2006-01-02 15:04:05")//.Format(time.RFC850)
+        	fmt.Println(start)
+        	ou.temperatureSensor()
+        	ou.weatherSensor()
+
+        case <- doneChan:
+            return
+      }
+    }
+
+	rand_number := randomInt(-30, 20)
+	ou.Temperature = append(ou.Temperature, rand_number)
+	//fmt.Println(rand_number)
+	fmt.Println("Temperature: ", ou.Temperature)
+
+}
+
+
+func (ou *ObservationUnit) weatherSensor() {
 	weather := make([]string, 0)
 	weather = append(weather,
     "Sunny",
@@ -669,15 +705,16 @@ func weather_sensor() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
     rand_weather := weather[rand.Intn(len(weather))]
-	fmt.Printf("\nRandom weather is: %s, ", rand_weather)
-	//ou.weather = rand_weather
+	ou.Weather = append(ou.Weather, rand_weather)
+	fmt.Println("Weather: ", ou.Weather)
 }
 
 
-func temperature_sensor() {
+func (ou *ObservationUnit) temperatureSensor() {
 	rand_number := randomInt(-30, 20)
-	//ou.temperature = rand_number
-	fmt.Println(rand_number)
+	ou.Temperature = append(ou.Temperature, rand_number)
+	//fmt.Println(rand_number)
+	fmt.Println("Temperature: ", ou.Temperature)
 }
 
 
