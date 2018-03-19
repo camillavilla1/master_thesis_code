@@ -685,12 +685,6 @@ func (ou *ObservationUnit) measureData() {
             return
       }
     }
-
-	rand_number := randomInt(-30, 20)
-	ou.Temperature = append(ou.Temperature, rand_number)
-	//fmt.Println(rand_number)
-	fmt.Println("Temperature: ", ou.Temperature)
-
 }
 
 
