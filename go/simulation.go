@@ -144,7 +144,7 @@ func getClusterheadPercentage(ou ObservationUnit) {
 	ou.CHpercentage = float64(*numCH)/100
 	fmt.Println(ou.CHpercentage)
 
-	fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
+	//fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
 	url := fmt.Sprintf("http://%s/clusterheadPercentage", ou.Addr)
 	fmt.Printf("SendingCH percentage to url: %s\n", url)
 

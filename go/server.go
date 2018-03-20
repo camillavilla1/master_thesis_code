@@ -45,7 +45,7 @@ type ObservationUnit struct {
 	IsClusterHead bool `json:"-"`
 	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
-	PathToCh []string `json:"-"`
+	//PathToCh []string `json:"-"`
 	CHpercentage float64 `json:"-"`
 	//prevClusterHead string
 	Temperature []int `json:"-"`
@@ -59,6 +59,15 @@ type CHpkt struct{
 	ClusterHead string
 }
 
+
+type SensorData struct {
+	Weather []string
+	Temperature []int
+	DateTime []string
+	Destination string
+	Source string
+	Path []string
+}
 
 func main() {
 
@@ -99,6 +108,13 @@ func startServer() {
 	
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
+	sensorData := &SensorData {
+		Weather:		[]string{},
+		Temperature:	[]int{},
+		DateTime:		[]string{},
+		Destination:	"",
+		Source:			"",
+		Path:			[]string{}}
 
 	ou := &ObservationUnit{
         Addr:					hostaddress,
@@ -113,7 +129,7 @@ func startServer() {
 		IsClusterHead:			false,
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
-		PathToCh:				[]string{},
+		//PathToCh:				[]string{},
 		CHpercentage:			0,
 		Temperature:			[]int{},
 		Weather:				[]string{}}
@@ -132,7 +148,8 @@ func startServer() {
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
-	go ou.measureData()
+	go sensorData.measureSensorData()
+	go ou.getData(sensorData)
 
 	err := http.ListenAndServe(ouPort, nil)
 	
@@ -417,6 +434,32 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 	}
 }
 
+/*How to broadcast to neighbours with/without list of path... and how to receive??*/
+func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
+	for _, addr := range ou.Neighbours {
+		if !listContains(sensorData.Path, addr) {
+			url := fmt.Sprintf("http://%s/NotifyNeighbours", addr)
+			fmt.Printf("\nContacting neighbour url: %s ", url)
+
+			if !listContains(sensorData.Path, ou.Addr) {
+				sensorData.Path = append(sensorData.Path, ou.Addr)
+			}
+			sensorData.Source = ou.Addr
+			sensorData.Destination = addr
+
+			message := "Can I get some data from you OUs.."
+			addressBody := strings.NewReader(message)
+			//fmt.Println("\nAddressbody: ", addressBody)
+
+			_, err = http.Post(url, "string", addressBody)
+			//errorMsg("Error posting to neighbour ", err)
+			if err != nil {
+				continue
+			}
+		}
+	}
+}
+
 
 /*Tell Simulation that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
@@ -536,6 +579,31 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	}
 }
 
+func (ou *ObservationUnit) getData(sensorData *SensorData) {
+	tickChan := time.NewTicker(time.Second * 3).C
+
+	doneChan := make(chan bool)
+    go func() {
+        time.Sleep(time.Second * time.Duration(batteryStart))
+        doneChan <- true
+    }()
+    
+    for {
+        select {
+        //case <- timeChan:
+        //    fmt.Println("Timer expired.\n")
+        case <- tickChan:
+        	//send data to neighbours..
+        	fmt.Printf("hello")
+        	go ou.NotifyNeighbours(sensorData)
+
+        case <- doneChan:
+            return
+      }
+    }
+}
+
+
 
 func randomFloat() float64 {
 	num := rand.Float64()
@@ -648,21 +716,7 @@ func listContains(s []string, e string) bool {
 }
 
 
-//Get address, check if it is started nodes slice, if not: append the address
-func retrieveAddresses(list []string, addr string) []string {
-
-	if listContains(list, addr) {
-		fmt.Printf("List contains %s.\n", addr)
-		return list
-	} else {
-		fmt.Printf("List do not contain %s, need to append.\n", addr)
-		list = append(list, addr)
-		return list
-	}
-}
-
-
-func (ou *ObservationUnit) measureData() {
+func (sd *SensorData) measureSensorData() {
 	tickChan := time.NewTicker(time.Second * 3).C
 
 	doneChan := make(chan bool)
@@ -678,11 +732,13 @@ func (ou *ObservationUnit) measureData() {
         case <- tickChan:
         	start := time.Now().Format("2006-01-02 15:04:05")//.Format(time.RFC850)
         	fmt.Println(start)
-        	temp := ou.temperatureSensor()
-        	weather := ou.weatherSensor()
+        	temp := temperatureSensor()
+        	weather := weatherSensor()
         	fmt.Println(temp, weather)
 
-        	//Add values to some kind of map.. 
+        	//Add values to sensorData
+        	sd.Weather = append(sd.Weather, weather)
+
 
         case <- doneChan:
             return
@@ -691,7 +747,7 @@ func (ou *ObservationUnit) measureData() {
 }
 
 
-func (ou *ObservationUnit) weatherSensor() string {
+func weatherSensor() string {
 	weather := make([]string, 0)
 	weather = append(weather,
     "Sunny",
@@ -708,7 +764,7 @@ func (ou *ObservationUnit) weatherSensor() string {
 }
 
 
-func (ou *ObservationUnit) temperatureSensor() int {
+func temperatureSensor() int {
 	rand_number := randomInt(-30, 20)
 	//ou.Temperature = append(ou.Temperature, rand_number)
 	//fmt.Println(rand_number)
