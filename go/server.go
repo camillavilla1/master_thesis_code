@@ -330,6 +330,7 @@ func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	for _, addr := range ou.Neighbours {
+		fmt.Printf("OU CH is: %s while pkt-CH is: %s\n", ou.ClusterHead, pkt.ClusterHead)
 		if ou.ClusterHead == addr {
 			fmt.Printf("%s neighbour is CH!\n", ou.Addr)
 			if !listContains(pkt.Path, ou.Addr) {
@@ -341,6 +342,7 @@ func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *htt
 			}
 			//tell OU about path to CH..
 			go ou.foundPathToLeader(pkt)
+			break
 
 		} else {
 			fmt.Printf("%s neighbour is not CH.. Need to forward to next neighbours..\n", addr)
@@ -574,6 +576,7 @@ func (ou *ObservationUnit) findPathToLeader(pkt CHpkt) {
 
 
 func (ou *ObservationUnit) foundPathToLeader(pkt CHpkt) {
+	fmt.Printf("\nPKT SOURCE: %s", pkt.Source)
 	url := fmt.Sprintf("http://%s/findPathToLeader", pkt.Source)
 	fmt.Printf("\nContacting neighbour url: %s ", url)
 
