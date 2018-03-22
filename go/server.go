@@ -93,6 +93,20 @@ func main() {
 	}
 }
 
+func (ou *ObservationUnit) write_to_file() {
+	// If the file doesn't exist, create it, or append to the file
+	f, err := os.OpenFile("test.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if _, err := f.Write([]byte("appended some data\n")); err != nil {
+		log.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&SimPort, "Simport", ":0", "Simulation (prefix with colon)")
@@ -282,17 +296,6 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 		fmt.Printf("%s-path is shortest..Don't need pkt-path to CH..\n", ou.Addr)
 	}*/
 
-	/*file, err := os.OpenFile("test.txt", os.O_WRONLY|os.O_APPEND, 0644)
-    if err != nil {
-        log.Fatalf("failed opening file: %s", err)
-    }
-    defer file.Close()
-
-    _, err = file.WriteString(ou.Addr)
-    if err != nil {
-        log.Fatalf("failed writing to file: %s", err)
-    }*/
-
 	ou.ClusterHead = pkt.ClusterHead
 	ou.IsClusterHead = false
 
@@ -303,10 +306,8 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	if len(ou.Neighbours) > 1 {
 		for _, addr := range ou.Neighbours {
 			if !listContains(pkt.Path, addr) {
-				//fmt.Printf("%s have more than 1 Neighbour and it's not in the pkt-path, send to other neighbours..\n", ou.Addr)
 				go ou.broadcastNewLeader(pkt)
 			} else {
-				//fmt.Printf("\nAddress %s is in %s path to CH.. Do not need to be contacted\n", addr, ou.Addr)
 				continue
 			}
 		}
@@ -374,6 +375,7 @@ func (ou *ObservationUnit) foundPathToLeaderHandler(w http.ResponseWriter, r *ht
 	}
 
 	fmt.Println("OUs path to CH is: ", ou.PathToCh)
+	go ou.write_to_file()
 }
 
 
@@ -387,9 +389,6 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	body, err := ioutil.ReadAll(r.Body)
     errorMsg("readall: ", err)
   
-  	//fmt.Printf("\n[ou.neighbour, yourself, clusterhead]\n")
-    //fmt.Printf(string(body))  
-    //fmt.Printf("\n")
 
 	if err := json.Unmarshal(body, &data); err != nil {
         panic(err)
@@ -481,16 +480,12 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 		//fmt.Printf("\n")
 		_, err := http.Post(url, "string", addressBody)
-		//http.Post(url, "string", addressBody)
-		//errorMsg("Error posting to neighbour ", err)
 		if err != nil {
 			continue
 		}
 	}
-	//fmt.Printf("\nContacted all neighbours.. Some may be unreachable due to death or sleep..\n")
 
 	if i == len(ou.ReachableNeighbours) {
-		//fmt.Printf("Have contacted all neighbours, either sucessfully or unsucessfully.. Check if node can be cluster head.\n")
 		time.Sleep(2 * time.Second)
 		go ou.clusterHeadElection()
 	}
@@ -589,12 +584,6 @@ func (ou *ObservationUnit) foundPathToLeader(pkt CHpkt) {
 	addressBody := strings.NewReader(string(b))
 
 	http.Post(url, "string", addressBody)
-	//_, err = http.Post(url, "string", addressBody)
-	//errorMsg("Error posting to neighbour ", err)
-	/*if err != nil {
-		continue
-	}*/
-
 }
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
