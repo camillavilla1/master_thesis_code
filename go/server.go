@@ -45,7 +45,7 @@ type ObservationUnit struct {
 	IsClusterHead bool `json:"-"`
 	ClusterHeadCount int `json:"-"`
 	Bandwidth int `json:"-"`
-	//PathToCh []string `json:"-"`
+	PathToCh []string `json:"-"`
 	CHpercentage float64 `json:"-"`
 	//prevClusterHead string
 	Temperature []int `json:"-"`
@@ -129,7 +129,7 @@ func startServer() {
 		IsClusterHead:			false,
 		ClusterHeadCount:		0,
 		Bandwidth:				bandwidth(),
-		//PathToCh:				[]string{},
+		PathToCh:				[]string{},
 		CHpercentage:			0,
 		Temperature:			[]int{},
 		Weather:				[]string{}}
@@ -149,7 +149,7 @@ func startServer() {
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go sensorData.measureSensorData()
-	go ou.getData(sensorData)
+	//go ou.getData(sensorData)
 
 	err := http.ListenAndServe(ouPort, nil)
 	
@@ -179,6 +179,7 @@ func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r
 /*Receive neighbours from simulation. Contact neighbours to say "Hi, Here I am"*/
 func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### ReachableNeighbours Handler ###\n")
+	//fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -200,6 +201,7 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 /*There are no OUs in range of the OU..*/
 func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### OU received no neighbour (Handler) ###\n")
+	//fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -218,6 +220,7 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
 func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### OU received a new neighbour (Handler) ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 	var newNeighbour string
 	//var data []string
 
@@ -252,6 +255,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 /*Receive a new leader from a neighbour. Update clusterhead and clusterhead-status*/
 func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### Receive a broadcast about a new leader ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 	var pkt CHpkt
 	
 	body, err := ioutil.ReadAll(r.Body)
@@ -264,25 +268,51 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	if !listContains(pkt.Path, ou.Addr) {
+	//fmt.Println("Received packet: ", pkt)
+	//fmt.Printf("\n")
+
+	/*if !listContains(pkt.Path, ou.Addr) {
+		fmt.Printf("Adding ou-addr to packet..\n")
 		pkt.Path = append(pkt.Path, ou.Addr)
-	}
+	}*/
+	//fmt.Println("\nOU path to CH is: ", ou.PathToCh)
+	//fmt.Println("\nPkt path to CH is: ", pkt.Path)
+	if len(ou.PathToCh) == 0 {
+		ou.PathToCh = pkt.Path
+	} else if len(ou.PathToCh) >= len(pkt.Path) {
+		//fmt.Printf("%s-path to CH is longer or the same as pkt-path to CH. Set shortest path\n", ou.Addr)
+		ou.PathToCh = pkt.Path
+	} /*else {
+		fmt.Printf("%s-path is shortest..Don't need pkt-path to CH..\n", ou.Addr)
+	}*/
+
 	ou.ClusterHead = pkt.ClusterHead
 	ou.IsClusterHead = false
 
-	fmt.Println("OU: ", ou)
+	
+	//fmt.Println("Packet: ", pkt)
+	//fmt.Printf("\n")
+	
+	fmt.Println("OU-path to CH is now: ", ou.PathToCh)
 	//fmt.Println("\nPKT: ", pkt)
 
 	if len(ou.Neighbours) > 1 {
-		go ou.broadcastNewLeader(pkt)
-		
+		for _, addr := range ou.Neighbours {
+			if !listContains(pkt.Path, addr) {
+				//fmt.Printf("%s have more than 1 Neighbour and it's not in the pkt-path, send to other neighbours..\n", ou.Addr)
+				go ou.broadcastNewLeader(pkt)
+			} else {
+				//fmt.Printf("\nAddress %s is in %s path to CH.. Do not need to be contacted\n", addr, ou.Addr)
+				continue
+			}
+		}
 	}
-
 }
 
 /*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n### Received OK from neighbour. Connect OU to new neighbour!\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 
 	var data []string
 	
@@ -341,6 +371,7 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 /*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 	fmt.Printf("\n### Tell contacting Neighbour that it's ok to connect ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 
 	//recOu := strings.Join(data[:1],"") //first element
 	newOu := strings.Join(data[1:2],"") //middle element, nr 2
@@ -348,7 +379,7 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
  
 
 	url := fmt.Sprintf("http://%s/connectingOk", newOu)
-	fmt.Printf("Sending to url: %s", url)
+	fmt.Printf("Sending to url: %s\n", url)
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -370,6 +401,7 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect */
 func (ou *ObservationUnit) contactNewNeighbour() {
 	fmt.Printf("\n### Contacting neighbours.. ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 	var i int
 	for _, neighbour := range ou.ReachableNeighbours {
 		i += 1
@@ -390,7 +422,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 	//fmt.Printf("\nContacted all neighbours.. Some may be unreachable due to death or sleep..\n")
 
 	if i == len(ou.ReachableNeighbours) {
-		fmt.Printf("Have contacted all neighbours, either sucessfully or unsucessfully.. Check if node can be cluster head.\n")
+		//fmt.Printf("Have contacted all neighbours, either sucessfully or unsucessfully.. Check if node can be cluster head.\n")
 		time.Sleep(2 * time.Second)
 		go ou.clusterHeadElection()
 	}
@@ -398,15 +430,18 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 /*Broadcast new CH message to neighbours*/
 func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
-	fmt.Printf("### Broadcast new leader to neighbours ###\n")
+	fmt.Printf("\n### Broadcast new leader to neighbours ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
     //var pkt CHpkt
 
 	for _, addr := range ou.Neighbours {
 		if !listContains(pkt.Path, addr) {
+			//fmt.Printf("Contact if %s is not in pkt-path..\n", addr)
 			url := fmt.Sprintf("http://%s/broadcastNewLeader", addr)
 			fmt.Printf("\nContacting neighbour url: %s ", url)
 
 			if !listContains(pkt.Path, ou.Addr) {
+				//fmt.Printf("\nAppending ou-addr (%s) to the pkt-path\n", ou.Addr)
 				pkt.Path = append(pkt.Path, ou.Addr)
 			}
 			pkt.Source = ou.Addr
@@ -415,6 +450,9 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 			/*if ou.IsClusterHead == true {
 				pkt.ClusterHead = ou.ClusterHead
 			}*/
+
+			//fmt.Println("Packet looks like this: ", pkt)
+			fmt.Printf("\n")
 
 			b, err := json.Marshal(pkt)
 			if err != nil {
@@ -430,12 +468,16 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 			if err != nil {
 				continue
 			}
+		} else {
+			//fmt.Printf("Address %s is already in pkt-path. Do not need to contact..\n", addr)
+			continue
 		}
 	}
 }
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
 func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
+	fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	for _, addr := range ou.Neighbours {
 		if !listContains(sensorData.Path, addr) {
 			url := fmt.Sprintf("http://%s/NotifyNeighbours", addr)
@@ -451,7 +493,7 @@ func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
 			addressBody := strings.NewReader(message)
 			//fmt.Println("\nAddressbody: ", addressBody)
 
-			_, err = http.Post(url, "string", addressBody)
+			_, err := http.Post(url, "string", addressBody)
 			//errorMsg("Error posting to neighbour ", err)
 			if err != nil {
 				continue
@@ -463,6 +505,7 @@ func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
 
 /*Tell Simulation that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
+	fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	//fmt.Println("Battery is ", ou.BatteryTime)
 
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
@@ -540,6 +583,7 @@ func (ou *ObservationUnit) biggestId() bool {
 
 func (ou *ObservationUnit) clusterHeadElection() {
 	fmt.Printf("\n### Cluster Head Election ###\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 	if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
 		ou.IsClusterHead = true
@@ -553,6 +597,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
 	fmt.Printf("\n### CLUSTER HEAD CALCULATION ####\n")
+	fmt.Printf("OU IS %s\n", ou.Addr)
 	var pkt CHpkt
 
 	//if battery us under 20% cannot OU be CH
@@ -594,7 +639,7 @@ func (ou *ObservationUnit) getData(sensorData *SensorData) {
         //    fmt.Println("Timer expired.\n")
         case <- tickChan:
         	//send data to neighbours..
-        	fmt.Printf("hello")
+        	//fmt.Printf("hello")
         	go ou.NotifyNeighbours(sensorData)
 
         case <- doneChan:
@@ -731,13 +776,15 @@ func (sd *SensorData) measureSensorData() {
         //    fmt.Println("Timer expired.\n")
         case <- tickChan:
         	start := time.Now().Format("2006-01-02 15:04:05")//.Format(time.RFC850)
-        	fmt.Println(start)
+        	//fmt.Println(start)
         	temp := temperatureSensor()
         	weather := weatherSensor()
-        	fmt.Println(temp, weather)
+        	//fmt.Println(temp, weather)
 
         	//Add values to sensorData
         	sd.Weather = append(sd.Weather, weather)
+        	sd.Temperature = append(sd.Temperature, temp)
+        	sd.DateTime = append(sd.DateTime, start)
 
 
         case <- doneChan:
