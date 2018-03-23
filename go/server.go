@@ -290,7 +290,6 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	if len(ou.PathToCh) == 0 {
 		ou.PathToCh = pkt.Path
 	} else if len(ou.PathToCh) >= len(pkt.Path) {
-
 		ou.PathToCh = pkt.Path
 	} /*else {
 		fmt.Printf("%s-path is shortest..Don't need pkt-path to CH..\n", ou.Addr)
@@ -720,7 +719,16 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 	var pkt CHpkt
 
-	if len(ou.ReachableNeighbours) == 0 {
+	if ou.Addr == "localhost:8084" && len(ou.ReachableNeighbours) != 0 {
+		ou.ClusterHeadCount += 1
+		ou.ClusterHead = ou.Addr
+		ou.IsClusterHead = true
+		pkt.ClusterHead = ou.Addr
+		//go ou.broadcastNewLeader(pkt)
+		go ou.broadcastLeaderPath(pkt)
+	}
+
+	/*if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
 		ou.IsClusterHead = true
 		ou.ClusterHead = ou.Addr
@@ -728,7 +736,28 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	} else {
 		//go ou.clusterHeadCalculation()
 		go ou.findPathToLeader(pkt)
-	}
+	}*/
+	//go ou.clusterHeadCalculation()
+}
+
+func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
+	tickChan := time.NewTicker(time.Second * 8).C
+
+	doneChan := make(chan bool)
+    go func() {
+        time.Sleep(time.Second * time.Duration(batteryStart))
+        doneChan <- true
+    }()
+    
+    for {
+        select {
+        case <- tickChan:
+        	go ou.broadcastNewLeader(pkt)
+
+        case <- doneChan:
+            return
+      }
+    }
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
@@ -738,26 +767,21 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
 		fmt.Printf("OU cannot be CH because of low battery\n")
 	} else {
-		//fmt.Printf("Check if OU can be CH..\n")
-		//batPercent := calcPercentage(ou.BatteryTime, batteryStart)
 		randNum := randomFloat()
 		threshold := ou.threshold()
 
 		if randNum < threshold {
 		//if randNum > threshold {
-			fmt.Printf("OU can be CH because of threshold..\n")
+			fmt.Printf("\n---------------------\nOU CAN BE CH!!!! BROADCAST TO NEIGHBOURS\n---------------------\n")
 			ou.ClusterHeadCount += 1
 			ou.ClusterHead = ou.Addr
 			ou.IsClusterHead = true
 			pkt.ClusterHead = ou.Addr
 			go ou.broadcastNewLeader(pkt)
 		} else {
-			fmt.Printf("OU can not be CH because of threshold.. Need to find path to ch..\n")
-			//Need to find path to ch.. what if there is no leader?
-
-			go ou.findPathToLeader(pkt)
+			fmt.Printf("OU can not be CH because of threshold.. Wait for a path to leader..\n")
 		}
-		time.Sleep(5 * time.Second)
+		//time.Sleep(5 * time.Second)
 	}
 }
 
@@ -772,11 +796,7 @@ func (ou *ObservationUnit) getData(sensorData *SensorData) {
     
     for {
         select {
-        //case <- timeChan:
-        //    fmt.Println("Timer expired.\n")
         case <- tickChan:
-        	//send data to neighbours..
-        	//fmt.Printf("hello")
         	go ou.NotifyNeighbours(sensorData)
 
         case <- doneChan:
