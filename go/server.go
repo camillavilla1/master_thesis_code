@@ -286,6 +286,11 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
+	if ou.ClusterHead != pkt.ClusterHead {
+		fmt.Printf("[%s CH: %s] is not similar to [%s CH: %s]\n", ou.Addr, ou.ClusterHead, pkt.Source, pkt.ClusterHead)
+	} else {
+		fmt.Printf("[%s CH: %s] is similar to [%s CH: %s]. No need to forward msg..\n", ou.Addr, ou.ClusterHead, pkt.Source, pkt.ClusterHead)
+	}
 
 	if len(ou.PathToCh) == 0 {
 		ou.PathToCh = pkt.Path
@@ -720,6 +725,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	var pkt CHpkt
 
 	if ou.Addr == "localhost:8084" && len(ou.ReachableNeighbours) != 0 {
+		fmt.Printf("\n\nLOCALHOST:8084 IS CH!!!\n\n")
 		ou.ClusterHeadCount += 1
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
@@ -741,7 +747,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 }
 
 func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
-	tickChan := time.NewTicker(time.Second * 8).C
+	tickChan := time.NewTicker(time.Second * 20).C
 
 	doneChan := make(chan bool)
     go func() {
