@@ -287,6 +287,7 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 
 	fmt.Printf("\n(%s): Received packet from %s\n", ou.Addr, pkt.Source)
 
+	//TRY WITHOUT CHECK FOR CLUSTERHEAD!!
 	if ou.ClusterHead == "" || ou.ClusterHead != pkt.ClusterHead {
 		ou.ClusterHead = pkt.ClusterHead
 		ou.IsClusterHead = false
