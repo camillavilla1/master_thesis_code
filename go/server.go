@@ -93,7 +93,7 @@ func main() {
 	}
 }
 
-func (ou *ObservationUnit) write_to_file() {
+/*func (ou *ObservationUnit) write_to_file() {
 	// If the file doesn't exist, create it, or append to the file
 	f, err := os.OpenFile("test.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -105,7 +105,7 @@ func (ou *ObservationUnit) write_to_file() {
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
-}
+}*/
 
 
 func addCommonFlags(flagset *flag.FlagSet) {
@@ -117,7 +117,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 func startServer() {
 	/*1800 = 30 min, 3600 in 60 min*/
-	batteryStart = 100
+	batteryStart = 500
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
 	
@@ -237,8 +237,8 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
 func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### OU received a new neighbour (Handler) ###\n")
 	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("### OU received a new neighbour (Handler) ###\n")
 	var newNeighbour string
 	//var data []string
 
@@ -266,14 +266,14 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 	time.Sleep(1000 * time.Millisecond)
 	go ou.tellContactingOuOk(data)
-	fmt.Println(ou)
+	//fmt.Println(ou)
 
 }
 
 /*Receive a new leader from a neighbour. Update clusterhead and clusterhead-status*/
 func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Receive a broadcast about a new leader ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Receive a broadcast about a new leader ###\n")
 	var pkt CHpkt
 	
 	body, err := ioutil.ReadAll(r.Body)
@@ -316,8 +316,8 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 
 
 func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Find path to leader Handler ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Find path to leader Handler ###\n")
 	var pkt CHpkt
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -333,7 +333,7 @@ func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *htt
 	for _, addr := range ou.Neighbours {
 		fmt.Printf("OU CH is: %s while pkt-CH is: %s\n", ou.ClusterHead, pkt.ClusterHead)
 		if ou.ClusterHead == addr {
-			fmt.Printf("%s neighbour is CH!\n", ou.Addr)
+			//fmt.Printf("%s neighbour is CH!\n", ou.Addr)
 			if !listContains(pkt.Path, ou.Addr) {
 				pkt.Path = append(pkt.Path, ou.Addr)
 			}
@@ -346,7 +346,17 @@ func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *htt
 			break
 
 		} else {
-			fmt.Printf("%s neighbour is not CH.. Need to forward to next neighbours..\n", addr)
+			fmt.Printf("%s neighbour is not CH. Neighbour-ch is %s.. Need to forward to next neighbours..\n", addr, ou.ClusterHead)
+			fmt.Println("OU.path is: ", ou.PathToCh)
+
+			if len(ou.PathToCh) == 0 {
+				fmt.Printf("OU-path is not empty, so have path to CH..\n")
+			} else {
+				fmt.Printf("Path is empty.. Need to forward to next neighbour..\n")
+				go ou.findPathToLeader(pkt)
+			}
+			//time.Sleep(20 * time.Second)
+			//go ou.findPathToLeader(pkt)
 		}
 	}
 
@@ -354,8 +364,8 @@ func (ou *ObservationUnit) findPathToLeaderHandler(w http.ResponseWriter, r *htt
 }
 
 func (ou *ObservationUnit) foundPathToLeaderHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Found path to leader Handler ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Found path to leader Handler ###\n")
 	var pkt CHpkt
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -368,21 +378,25 @@ func (ou *ObservationUnit) foundPathToLeaderHandler(w http.ResponseWriter, r *ht
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
+	if len(ou.PathToCh) == 0 {
+		fmt.Printf("%s path to ch is empty.. Adding path", ou.Addr)
+		ou.PathToCh = pkt.Path
 
-	if len(ou.PathToCh) > len(pkt.Path) {
+	} else if len(ou.PathToCh) > len(pkt.Path) {
 		fmt.Printf("OU path is longer than pkt-path, so change to shortest path\n")
 		ou.PathToCh = pkt.Path
+	} else {
+		fmt.Printf("Path is not empty or longer than new path..\n")
 	}
 
 	fmt.Println("OUs path to CH is: ", ou.PathToCh)
-	go ou.write_to_file()
 }
 
 
 /*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n### Received OK from neighbour. Connect OU to new neighbour!\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Received OK from neighbour. Connect OU to new neighbour!\n")
 
 	var data []string
 	
@@ -404,7 +418,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	ou.ClusterHead = clusterHead
-    fmt.Println(ou)
+    //fmt.Println(ou)
 
 
 	io.Copy(ioutil.Discard, r.Body)
@@ -437,8 +451,8 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 
 /*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
-	fmt.Printf("\n### Tell contacting Neighbour that it's ok to connect ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Tell contacting Neighbour that it's ok to connect ###\n")
 
 	//recOu := strings.Join(data[:1],"") //first element
 	newOu := strings.Join(data[1:2],"") //middle element, nr 2
@@ -467,8 +481,8 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect */
 func (ou *ObservationUnit) contactNewNeighbour() {
-	fmt.Printf("\n### Contacting neighbours.. ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Contacting neighbours.. ###\n")
 	var i int
 	for _, neighbour := range ou.ReachableNeighbours {
 		i += 1
@@ -493,8 +507,8 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 /*Broadcast new CH message to neighbours*/
 func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
-	fmt.Printf("\n### Broadcast new leader to neighbours ###\n")
-	fmt.Printf("OU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Broadcast new leader to neighbours ###\n")
     //var pkt CHpkt
 
 	for _, addr := range ou.Neighbours {
@@ -535,7 +549,13 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 
 
 func (ou *ObservationUnit) findPathToLeader(pkt CHpkt) {
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("### Find path to leader! ### \n")
+	fmt.Printf("[path], source, destination, clusterhead\n")
+	fmt.Println(pkt)
+
 	for _, addr := range ou.Neighbours {
+
 		if ou.ClusterHead == addr {
 			fmt.Printf("Neighbour is CH, so no need for contact..\n")
 			if !listContains(ou.PathToCh, addr) {
@@ -571,8 +591,9 @@ func (ou *ObservationUnit) findPathToLeader(pkt CHpkt) {
 
 
 func (ou *ObservationUnit) foundPathToLeader(pkt CHpkt) {
-	fmt.Printf("\nPKT SOURCE: %s", pkt.Source)
-	url := fmt.Sprintf("http://%s/findPathToLeader", pkt.Source)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	fmt.Printf("PKT SOURCE: %s", pkt.Source)
+	url := fmt.Sprintf("http://%s/foundPathToLeader", pkt.Source)
 	fmt.Printf("\nContacting neighbour url: %s ", url)
 
 	b, err := json.Marshal(pkt)
@@ -588,7 +609,8 @@ func (ou *ObservationUnit) foundPathToLeader(pkt CHpkt) {
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
 func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
-	fmt.Printf("\n\nOU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
+
 	for _, addr := range ou.Neighbours {
 		if !listContains(sensorData.Path, addr) {
 			url := fmt.Sprintf("http://%s/NotifyNeighbours", addr)
@@ -616,7 +638,7 @@ func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
 
 /*Tell Simulation that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
-	fmt.Printf("\n\nOU IS %s\n", ou.Addr)
+	fmt.Printf("\nOU IS %s\n", ou.Addr)
 	//fmt.Println("Battery is ", ou.BatteryTime)
 
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
@@ -695,14 +717,17 @@ func (ou *ObservationUnit) biggestId() bool {
 func (ou *ObservationUnit) clusterHeadElection() {
 	fmt.Printf("\n### Cluster Head Election ###\n")
 	fmt.Printf("OU IS %s\n", ou.Addr)
+
+	var pkt CHpkt
+
 	if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
 		ou.IsClusterHead = true
 		ou.ClusterHead = ou.Addr
 		ou.ClusterHeadCount += 1
 	} else {
-		//if ou.ClusterHead 
-		go ou.clusterHeadCalculation()
+		//go ou.clusterHeadCalculation()
+		go ou.findPathToLeader(pkt)
 	}
 }
 
@@ -713,7 +738,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
 		fmt.Printf("OU cannot be CH because of low battery\n")
 	} else {
-		fmt.Printf("Check if OU can be CH..\n")
+		//fmt.Printf("Check if OU can be CH..\n")
 		//batPercent := calcPercentage(ou.BatteryTime, batteryStart)
 		randNum := randomFloat()
 		threshold := ou.threshold()
@@ -728,7 +753,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 			go ou.broadcastNewLeader(pkt)
 		} else {
 			fmt.Printf("OU can not be CH because of threshold.. Need to find path to ch..\n")
-			//Need to find path to ch..
+			//Need to find path to ch.. what if there is no leader?
 
 			go ou.findPathToLeader(pkt)
 		}
