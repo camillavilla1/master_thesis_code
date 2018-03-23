@@ -35,7 +35,7 @@ func main() {
 		s_port := strconv.Itoa(port)
 		if !sliceContains(taken_port, port) {
 			taken_port = append(taken_port, port)
-			cmnd := exec.Command("go", "run", "server.go", "run", "-Simport=8080", "-host=localhost", "-port=:"+s_port)		
+			cmnd := exec.Command("go", "run", "cmd/server/server.go", "run", "-Simport=8080", "-host=localhost", "-port=:"+s_port)		
 			errorMsg("Command error: ", err)
 				
 			fmt.Println(i)
