@@ -285,10 +285,42 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	fmt.Printf("\n(%s): Received packet from %s\n", ou.Addr, pkt.Source)
+	fmt.Printf("(%s): Received packet from %s\n", ou.Addr, pkt.Source)
+
+	if ou.ClusterHead == pkt.ClusterHead {
+		fmt.Printf("\n(%s) clusterhead: %s and pkt-ch %s is similar.. No need to do anything..\n", ou.Addr, ou.ClusterHead, pkt.ClusterHead)
+	} else {
+		fmt.Printf("\n(%s) CH is %s, but changes to pkt-ch: %s\n", ou.Addr, ou.ClusterHead, pkt.ClusterHead)
+		ou.ClusterHead = pkt.ClusterHead
+	}
+
+	if len(ou.PathToCh) == 0 {
+		ou.PathToCh = pkt.Path
+	} else if len(ou.PathToCh) >= len(pkt.Path) {
+		ou.PathToCh = pkt.Path
+	}
+	fmt.Printf("\n(%s) path to CH is now: %v", ou.Addr, ou.PathToCh)
+	
+	for _, addr := range ou.Neighbours {
+		if  addr != ou.ClusterHead && addr != pkt.Source {
+			fmt.Printf("\n(%s) have neighbours. Send to %s\n", ou.Addr, addr)
+			fmt.Printf("%s is not ch (%s)\n", addr, ou.ClusterHead)
+			fmt.Printf("(%s) appending own addr to path\n", ou.Addr)
+			pkt.Path = append(pkt.Path, ou.Addr)
+			fmt.Printf("(%s) Packet is: %s\n", ou.Addr, pkt)
+			//if !listContains(pkt.Path, addr) {
+			go ou.broadcastNewLeader(pkt)
+			//} else {
+			//	continue
+			//}
+		} else {
+			fmt.Printf("(%s): %s is clusterhead or/and pkt-source %s. No need to send update\n", ou.Addr, addr, pkt.Source)
+			continue
+		}
+	}
 
 	//TRY WITHOUT CHECK FOR CLUSTERHEAD!!
-	if ou.ClusterHead == "" || ou.ClusterHead != pkt.ClusterHead {
+	/*if ou.ClusterHead == "" || ou.ClusterHead != pkt.ClusterHead {
 		ou.ClusterHead = pkt.ClusterHead
 		ou.IsClusterHead = false
 
@@ -302,9 +334,9 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 			ou.PathToCh = pkt.Path
 		}
 		fmt.Printf("\n%s path to CH is now: %v", ou.Addr, ou.PathToCh)
-
-		if len(ou.Neighbours) > 1 {
-			go ou.broadcastNewLeader(pkt)
+		*/
+		//if len(ou.Neighbours) > 1 {
+		//	go ou.broadcastNewLeader(pkt)
 		/*	for _, addr := range ou.Neighbours {
 				if  addr != ou.ClusterHead {
 					fmt.Printf("%s have neighbours. Send to %s\n", ou.Addr, addr)
@@ -319,9 +351,9 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 					//}
 				}
 			}*/
-		}
+		//}
 
-	} else {
+	/*} else {
 		fmt.Printf("\n(%s): ou-ch is %s == pkt-ch %s\n", ou.Addr, ou.ClusterHead, pkt.ClusterHead)
 
 		if len(ou.PathToCh) == 0 {
@@ -330,7 +362,7 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 			ou.PathToCh = pkt.Path
 		}
 		fmt.Printf("\n%s path to CH is now: %v", ou.Addr, ou.PathToCh)
-	}
+	}*/
 
 
 }
@@ -534,7 +566,7 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 		pkt.Path = append(pkt.Path, ou.Addr)
 	}
 
-	fmt.Printf("%s neighbours: %v", ou.Addr, ou.Neighbours)
+	fmt.Printf("(%s) neighbours: %v", ou.Addr, ou.Neighbours)
 	for _, addr := range ou.Neighbours {
 		if !listContains(pkt.Path, addr) {
 			fmt.Printf("\n(%s): Contact %s because it's not in pkt-path %v..\n", ou.Addr, addr, pkt.Path)
