@@ -159,9 +159,8 @@ func startServer() {
 	http.HandleFunc("/noReachableNeighbours", ou.NoReachableNeighboursHandler)
 	http.HandleFunc("/connectingOk", ou.connectingOkHandler)
 	http.HandleFunc("/broadcastNewLeader", ou.broadcastNewLeaderHandler)
+
 	
-
-
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go sensorData.measureSensorData()
@@ -328,7 +327,7 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 
 /*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n###(%s):  Received OK from neighbour. Connect OU to new neighbour!\n", ou.Addr)
+	//fmt.Printf("\n###(%s):  Received OK from neighbour. Connect OU to new neighbour!\n", ou.Addr)
 
 	var data []string
 	
