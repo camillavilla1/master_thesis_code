@@ -615,7 +615,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	var pkt CHpkt
 
 	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
-		fmt.Printf("\n\nLOCALHOST:8084 IS CH!!!\n\n")
+		fmt.Printf("\n\nLOCALHOST:8085 IS CH!!!\n\n")
 		ou.ClusterHeadCount += 1
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
@@ -637,7 +637,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 }
 
 func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
-	tickChan := time.NewTicker(time.Second * 10).C
+	tickChan := time.NewTicker(time.Second * 60).C
 
 	doneChan := make(chan bool)
     go func() {
@@ -735,7 +735,7 @@ func hashAddress(address string) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 45) + 5
+	num := (rand.Float64() * 145) + 5
 	return num
 }
 
@@ -768,7 +768,7 @@ func (ou *ObservationUnit) batteryConsumption() {
 		    }
         case <- doneChan:
         	ou.BatteryTime = 0
-            fmt.Println("Done. OU is dead..\n")
+            fmt.Println("Done. OU is dead..")
             go ou.shutdownOu()
             return
       }

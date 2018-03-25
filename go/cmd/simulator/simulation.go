@@ -48,7 +48,7 @@ var numCH = flag.Int("numCH", 0, "Number of Cluster Heads")
 
 func main() {
 	numNodesRunning = 0
-	nodeRadius = 100.0
+	nodeRadius = 80.0
 	gridX = 200
 	gridY = 200
 
