@@ -160,7 +160,7 @@ func startServer() {
 	http.HandleFunc("/connectingOk", ou.connectingOkHandler)
 	http.HandleFunc("/broadcastNewLeader", ou.broadcastNewLeaderHandler)
 
-	
+
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go sensorData.measureSensorData()
@@ -611,7 +611,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	//fmt.Printf("\n### Cluster Head Election ###\n")
 	//fmt.Printf("OU IS %s\n", ou.Addr)
 
-	var pkt CHpkt
+	/*var pkt CHpkt
 
 	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
 		fmt.Printf("\n\nLOCALHOST:8085 IS CH!!!\n\n")
@@ -621,7 +621,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		pkt.ClusterHead = ou.Addr
 		//go ou.broadcastNewLeader(pkt)
 		go ou.broadcastLeaderPath(pkt)
-	}
+	}*/
 
 	/*if len(ou.ReachableNeighbours) == 0 {
 		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
@@ -632,7 +632,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		//go ou.clusterHeadCalculation()
 		go ou.findPathToLeader(pkt)
 	}*/
-	//go ou.clusterHeadCalculation()
+	go ou.clusterHeadCalculation()
 }
 
 func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
@@ -661,28 +661,29 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 
 	//if battery us under 20% cannot OU be CH
 	if float64(ou.BatteryTime) < (float64(batteryStart)*0.20) {
-		fmt.Printf("OU cannot be CH because of low battery\n")
+		fmt.Printf("(%s): cannot be CH because of low battery\n", ou.Addr)
 	} else {
 		randNum := randomFloat()
 		threshold := ou.threshold()
 
 		if randNum < threshold {
 		//if randNum > threshold {
-			fmt.Printf("\n---------------------\nOU CAN BE CH!!!! BROADCAST TO NEIGHBOURS\n---------------------\n")
+			fmt.Printf("\n---------------------\n(%s): CAN BE CH!!!! BROADCAST TO NEIGHBOURS\n---------------------\n", ou.Addr)
 			ou.ClusterHeadCount += 1
 			ou.ClusterHead = ou.Addr
 			ou.IsClusterHead = true
 			pkt.ClusterHead = ou.Addr
-			go ou.broadcastNewLeader(pkt)
-		} else {
-			fmt.Printf("OU can not be CH because of threshold.. Wait for a path to leader..\n")
-		}
+			go ou.broadcastLeaderPath(pkt)
+			//go ou.broadcastNewLeader(pkt)
+		}/* else {
+			fmt.Printf("\n(%s): can not be CH because of threshold.. Wait for a path to leader..\n", ou.Addr)
+		}*/
 		//time.Sleep(5 * time.Second)
 	}
 }
 
 func (ou *ObservationUnit) getData(sensorData *SensorData) {
-	tickChan := time.NewTicker(time.Second * 3).C
+	tickChan := time.NewTicker(time.Second * 60).C
 
 	doneChan := make(chan bool)
     go func() {
@@ -700,7 +701,6 @@ func (ou *ObservationUnit) getData(sensorData *SensorData) {
       }
     }
 }
-
 
 
 func randomFloat() float64 {
@@ -762,7 +762,7 @@ func (ou *ObservationUnit) batteryConsumption() {
 		    if ou.BatteryTime == 0 {
 		    	//fmt.Printf("Batterytime is 0..\n")
 		    } else if float64(ou.BatteryTime) <= (float64(batteryStart)*0.20) {
-		    	fmt.Printf("OU have low battery.. Need to sleep to save power\n")
+		    	fmt.Printf("\n(%s): have low battery.. Need to sleep to save power and chose a new CH\n", ou.Addr)
 		    	//saveBatterytime()
 		    }
         case <- doneChan:
