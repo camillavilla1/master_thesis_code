@@ -14,7 +14,7 @@
             "host": "127.0.0.1",
             "program": "${workspaceFolder}/cmd/server/server.go",
             "env": {},
-            "args": ["run", "-Simport=8080", "-host=localhost", "-port=:8084"],
+            "args": ["run", "-Simport=8080", "-host=localhost", "-port=:8085"],
             "showLog": true
         }
     ]
