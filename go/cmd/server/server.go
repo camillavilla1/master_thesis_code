@@ -50,6 +50,7 @@ type ObservationUnit struct {
 	//prevClusterHead string
 	Temperature []int `json:"-"`
 	Weather []string `json:"-"`
+	SensorData `json:"-"`
 }
 
 type CHpkt struct{
@@ -61,12 +62,12 @@ type CHpkt struct{
 
 
 type SensorData struct {
+	ID uint32
 	Weather []string
 	Temperature []int
 	DateTime []string
-	Destination string
 	Source string
-	Path []string
+	Destination string
 }
 
 func main() {
@@ -117,19 +118,19 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 func startServer() {
 	/*1800 = 30 min, 3600 in 60 min*/
-	batteryStart = 500
+	batteryStart = 1000
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
 	
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
-	sensorData := &SensorData {
+	/*sensorData := &SensorData {
+		ID:				0,
 		Weather:		[]string{},
 		Temperature:	[]int{},
 		DateTime:		[]string{},
-		Destination:	"",
 		Source:			"",
-		Path:			[]string{}}
+		Destination:	""}*/
 
 	ou := &ObservationUnit{
         Addr:					hostaddress,
@@ -147,7 +148,14 @@ func startServer() {
 		PathToCh:				[]string{},
 		CHpercentage:			0,
 		Temperature:			[]int{},
-		Weather:				[]string{}}
+		Weather:				[]string{},
+		SensorData:				SensorData{
+								ID:				0,
+								Weather:		[]string{},
+								Temperature:	[]int{},
+								DateTime:		[]string{},
+								Source:			"",
+								Destination:	""}}
 
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
@@ -159,12 +167,13 @@ func startServer() {
 	http.HandleFunc("/noReachableNeighbours", ou.NoReachableNeighboursHandler)
 	http.HandleFunc("/connectingOk", ou.connectingOkHandler)
 	http.HandleFunc("/broadcastNewLeader", ou.broadcastNewLeaderHandler)
+	http.HandleFunc("/notifyNeighboursGetData", ou.notifyNeighboursGetDataHandler)
 
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
-	go sensorData.measureSensorData()
-	//go ou.getData(sensorData)
+	go ou.measureSensorData()
+	go ou.getData()
 
 	err := http.ListenAndServe(ouPort, nil)
 	
@@ -297,8 +306,6 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 		ou.PathToCh = pkt.Path
 	}
 	fmt.Printf("\n######################\n(%s) path to CH is: %v\n######################\n", ou.Addr, ou.PathToCh)
-	
-
 
 	for _, addr := range ou.Neighbours {
 		if  addr != ou.ClusterHead && addr != pkt.Source {
@@ -322,6 +329,35 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	}
 }
 
+/*Receive a msg from CH about sending (accumulated) data to CH. */
+func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
+	var sData SensorData
+	
+	body, err := ioutil.ReadAll(r.Body)
+    errorMsg("readall: ", err)
+  
+
+	if err := json.Unmarshal(body, &sData); err != nil {
+        panic(err)
+	}
+	
+	io.Copy(ioutil.Discard, r.Body)
+	r.Body.Close()
+
+	fmt.Printf("(%s): Received msg from %s\n", ou.Addr, sData.Source)
+
+	if sData.ID == ou.SensorData.ID {
+		fmt.Printf("\n(%s): Have received this msg before.. \n", ou.Addr)
+	} else {
+		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
+		go ou.notifyNeighboursGetData(sData)
+
+		fmt.Printf("(%s) Accumulate data and send to CH (through path).. NOT IMPLEMENTED!!\n", ou.Addr)
+	}
+
+
+}
 
 
 
@@ -470,7 +506,7 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 			_, err = http.Post(url, "string", addressBody)
 			//errorMsg("Error posting to neighbour ", err)
 			if err != nil {
-				fmt.Printf("(%s) Try to post broadcast %s\n", ou.Addr, err)
+				fmt.Printf("(%s): Try to post broadcast %s\n", ou.Addr, err)
 				continue
 			}
 		} else {
@@ -482,60 +518,51 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 }
 
 
-
-
-func (ou *ObservationUnit) foundPathToLeader(pkt CHpkt) {
-	fmt.Printf("\nOU IS %s\n", ou.Addr)
-	url := fmt.Sprintf("http://%s/foundPathToLeader", pkt.Source)
-	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
-
-	b, err := json.Marshal(pkt)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	addressBody := strings.NewReader(string(b))
-
-	http.Post(url, "string", addressBody)
-}
-
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
-func (ou *ObservationUnit) NotifyNeighbours(sensorData *SensorData) {
-	fmt.Printf("\nOU IS %s\n", ou.Addr)
+func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 
 	for _, addr := range ou.Neighbours {
-		if !listContains(sensorData.Path, addr) {
-			url := fmt.Sprintf("http://%s/NotifyNeighbours", addr)
+
+		if addr != sensorData.Source {
+			//if !listContains(sensorData.Path, addr) {
+			url := fmt.Sprintf("http://%s/notifyNeighboursGetData", addr)
 			fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
-			if !listContains(sensorData.Path, ou.Addr) {
-				sensorData.Path = append(sensorData.Path, ou.Addr)
-			}
-			sensorData.Source = ou.Addr
-			sensorData.Destination = addr
+			/*	if !listContains(sensorData.Path, ou.Addr) {
+					sensorData.Path = append(sensorData.Path, ou.Addr)
+				}*/
+			ou.SensorData.Source = ou.Addr
+			ou.SensorData.Destination = addr
 
-			message := "Can I get some data from you OUs.."
-			addressBody := strings.NewReader(message)
+			b, err := json.Marshal(ou.SensorData)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			addressBody := strings.NewReader(string(b))
 			//fmt.Println("\nAddressbody: ", addressBody)
 
-			_, err := http.Post(url, "string", addressBody)
+			_, err = http.Post(url, "string", addressBody)
 			//errorMsg("Error posting to neighbour ", err)
 			if err != nil {
+				fmt.Printf("(%s): Try to post notify neighbours to get data %s\n", ou.Addr, err)
 				continue
 			}
+			//}
 		}
+		
 	}
 }
 
 
 /*Tell Simulation that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
-	fmt.Printf("\nOU IS %s\n", ou.Addr)
+	//fmt.Printf("\nOU IS %s\n", ou.Addr)
 	//fmt.Println("Battery is ", ou.BatteryTime)
 
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
-	fmt.Printf("Sending to url: %s with info about OU.\n", url)
+	fmt.Printf("(%s): Sending to url: %s.\n", ou.Addr, url)
 
 	b, err := json.Marshal(ou)
 	if err != nil {
@@ -554,7 +581,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 /*Tell SOU that you're dead */
 func (ou *ObservationUnit) tellSimulationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachableOu", SimPort)
-	fmt.Printf("Sending 'I'm dead..' to url: %s \n", url)
+	fmt.Printf("(%s): Sending 'I'm dead..' to url: %s \n", ou.Addr, url)
 	
 	b, err := json.Marshal(ou)
 	if err != nil {
@@ -611,7 +638,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	//fmt.Printf("\n### Cluster Head Election ###\n")
 	//fmt.Printf("OU IS %s\n", ou.Addr)
 
-	/*var pkt CHpkt
+	var pkt CHpkt
 
 	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
 		fmt.Printf("\n\nLOCALHOST:8085 IS CH!!!\n\n")
@@ -619,24 +646,15 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
 		pkt.ClusterHead = ou.Addr
-		//go ou.broadcastNewLeader(pkt)
-		go ou.broadcastLeaderPath(pkt)
-	}*/
+		go ou.broadcastNewLeader(pkt)
+		//go ou.broadcastLeaderPath(pkt)
+	}
 
-	/*if len(ou.ReachableNeighbours) == 0 {
-		fmt.Printf("No Reachable Neighbours.. Be your own CH!\n")
-		ou.IsClusterHead = true
-		ou.ClusterHead = ou.Addr
-		ou.ClusterHeadCount += 1
-	} else {
-		//go ou.clusterHeadCalculation()
-		go ou.findPathToLeader(pkt)
-	}*/
-	go ou.clusterHeadCalculation()
+	//go ou.clusterHeadCalculation()
 }
 
 func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
-	tickChan := time.NewTicker(time.Second * 60).C
+	tickChan := time.NewTicker(time.Second * 20).C
 
 	doneChan := make(chan bool)
     go func() {
@@ -647,7 +665,6 @@ func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
     for {
         select {
         case <- tickChan:
-        	fmt.Printf("\n-------\n(%s) BROADCASTING NEW LEADER!!!!\n-------\n", ou.Addr)
         	go ou.broadcastNewLeader(pkt)
 
         case <- doneChan:
@@ -668,7 +685,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 
 		if randNum < threshold {
 		//if randNum > threshold {
-			fmt.Printf("\n---------------------\n(%s): CAN BE CH!!!! BROADCAST TO NEIGHBOURS\n---------------------\n", ou.Addr)
+			fmt.Printf("\n---------------------\n(%s): CAN BE CH!!!! BROADCAST NEW LEADER TO NEIGHBOURS\n---------------------\n", ou.Addr)
 			ou.ClusterHeadCount += 1
 			ou.ClusterHead = ou.Addr
 			ou.IsClusterHead = true
@@ -682,7 +699,9 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	}
 }
 
-func (ou *ObservationUnit) getData(sensorData *SensorData) {
+func (ou *ObservationUnit) getData() {
+	var num uint32
+	num = 0
 	tickChan := time.NewTicker(time.Second * 60).C
 
 	doneChan := make(chan bool)
@@ -692,13 +711,18 @@ func (ou *ObservationUnit) getData(sensorData *SensorData) {
     }()
     
     for {
-        select {
-        case <- tickChan:
-        	go ou.NotifyNeighbours(sensorData)
+		if ou.IsClusterHead == true {
+			select {
+			case <- tickChan:
+				num += 1
+				ou.SensorData.ID = ou.ID + num
+				fmt.Printf("(%s): SENSORDATA ID: %d\n", ou.Addr, ou.SensorData.ID)
+				go ou.notifyNeighboursGetData(ou.SensorData)
 
-        case <- doneChan:
-            return
-      }
+			case <- doneChan:
+				return
+			}	
+		}
     }
 }
 
@@ -734,7 +758,7 @@ func hashAddress(address string) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 145) + 5
+	num := (rand.Float64() * 45) + 5
 	return num
 }
 
@@ -814,8 +838,8 @@ func listContains(s []string, e string) bool {
 }
 
 
-func (sd *SensorData) measureSensorData() {
-	tickChan := time.NewTicker(time.Second * 3).C
+func (sd *ObservationUnit) measureSensorData() {
+	tickChan := time.NewTicker(time.Second * 5).C
 
 	doneChan := make(chan bool)
     go func() {
