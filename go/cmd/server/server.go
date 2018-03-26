@@ -887,6 +887,9 @@ func (ou *ObservationUnit) measureSensorData() {
 
 func (ou *ObservationUnit) byteSensor() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	token := make([]byte, 4)
+	rand.Read(token)
+	fmt.Println(token)
 	num := randomInt(1, 5000)
 	ou.SensorData.Data = append(ou.SensorData.Data, byte(num))
 }
