@@ -47,10 +47,7 @@ type ObservationUnit struct {
 	Bandwidth           int      `json:"-"`
 	PathToCh            []string `json:"-"`
 	CHpercentage        float64  `json:"-"`
-	//prevClusterHead string
-	Temperature []int    `json:"-"`
-	Weather     []string `json:"-"`
-	SensorData  `json:"-"`
+	SensorData          `json:"-"`
 }
 
 type CHpkt struct {
@@ -120,14 +117,6 @@ func startServer() {
 
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
-	/*sensorData := &SensorData {
-	ID:				0,
-	Weather:		[]string{},
-	Temperature:	[]int{},
-	DateTime:		[]string{},
-	Source:			"",
-	Destination:	""}*/
-
 	ou := &ObservationUnit{
 		Addr:                hostaddress,
 		ID:                  hashAddress(hostaddress),
@@ -143,8 +132,6 @@ func startServer() {
 		Bandwidth:           bandwidth(),
 		PathToCh:            []string{},
 		CHpercentage:        0,
-		Temperature:         []int{},
-		Weather:             []string{},
 		SensorData: SensorData{
 			ID:          0,
 			Fingerprint: 0,
@@ -162,6 +149,7 @@ func startServer() {
 	http.HandleFunc("/connectingOk", ou.connectingOkHandler)
 	http.HandleFunc("/broadcastNewLeader", ou.broadcastNewLeaderHandler)
 	http.HandleFunc("/notifyNeighboursGetData", ou.notifyNeighboursGetDataHandler)
+	http.HandleFunc("/sendDataToLeader", ou.sendDataToLeaderHandler)
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -338,18 +326,42 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
 		go ou.notifyNeighboursGetData(sData)
 
-		fmt.Printf("(%s) Accumulate data and send to CH (through path).. NOT IMPLEMENTED!!\n", ou.Addr)
-		go ou.sendData(sData)
+		//go ou.sendDataToLeader(sData)
 
 		//if ch is neighbour, no need for accumulate data..
-		if len(ou.Neighbours) <= 1 {
-			if ou.Neighbours[0] == ou.ClusterHead {
-				go ou.sendData(sData)
+		if len(ou.PathToCh) <= 1 {
+			if ou.PathToCh[0] == ou.ClusterHead {
+				fmt.Printf("\n(%s) Send data to CH \n", ou.Addr)
+				sData.Source = ou.Addr
+				sData.Fingerprint = hashByte(ou.SensorData.Data)
+				go ou.sendDataToLeader(sData)
 			}
 		} else {
+			fmt.Printf("\n(%s) Accumulate data and send to CH (through path)\n", ou.Addr)
 			//Need to accumulate data with neighbours
+			go ou.accumulateSensorData(sData)
 		}
 	}
+}
+
+func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
+	var sData SensorData
+
+	body, err := ioutil.ReadAll(r.Body)
+	errorMsg("readall: ", err)
+
+	if err := json.Unmarshal(body, &sData); err != nil {
+		panic(err)
+	}
+
+	io.Copy(ioutil.Discard, r.Body)
+	defer r.Body.Close()
+
+	if ou.IsClusterHead == true {
+		fmt.Printf("\n(%s): Received data from %s. Need to accumulate that data\n", ou.Addr, sData.Source)
+		fmt.Printf("\n(%s): sensordata looks like this: %x, with fingerprint: %b", ou.Addr, sData.Data, sData.Fingerprint)
+	}
+
 }
 
 /*Receive ok from CH that new OU can join.*/
@@ -538,15 +550,33 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 	}
 }
 
-func (ou *ObservationUnit) sendData(sensorData SensorData) {
+func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	lastElem := ou.PathToCh[len(ou.PathToCh)-1]
 
 	//removing last element
-	newPath := ou.PathToCh[:len(ou.PathToCh)-1]
-	fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
+	//newPath := ou.PathToCh[:len(ou.PathToCh)-1]
+	//fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
 
-	url := fmt.Sprintf("http://%s/sendData", lastElem)
+	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
 	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+
+	sensorData.Source = ou.Addr
+
+	b, err := json.Marshal(sensorData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	addressBody := strings.NewReader(string(b))
+	//fmt.Println("\nAddressbody: ", addressBody)
+
+	_, err = http.Post(url, "string", addressBody)
+	//errorMsg("Error posting to neighbour ", err)
+	if err != nil {
+		fmt.Printf("(%s): Try to post new data to %s: %s\n", ou.Addr, lastElem, err)
+	}
+
 }
 
 /*Tell Simulation that node is up and running*/
@@ -662,10 +692,15 @@ func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
 	}
 }
 
+func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
+	fmt.Printf("\n(%s): Accumulate data with data from %s\n", ou.Addr, sData.Source)
+
+}
+
 func (ou *ObservationUnit) clusterHeadCalculation() {
 	var pkt CHpkt
 
-	//if battery us under 20% cannot OU be CH
+	//if battery is under 20% cannot OU be CH
 	if float64(ou.BatteryTime) < (float64(batteryStart) * 0.20) {
 		fmt.Printf("(%s): cannot be CH because of low battery\n", ou.Addr)
 	} else {
@@ -700,17 +735,18 @@ func (ou *ObservationUnit) getData() {
 	}()
 
 	for {
-		if ou.IsClusterHead == true {
-			select {
-			case <-tickChan:
+		select {
+		case <-tickChan:
+			if ou.IsClusterHead == true {
+				fmt.Printf("\n(%s): IS CLUSTER HEAD.. SHOULD ASK FOR DATA\n", ou.Addr)
 				num += 1
 				ou.SensorData.ID = ou.ID + num
 				fmt.Printf("(%s): SENSORDATA ID: %d\n", ou.Addr, ou.SensorData.ID)
 				go ou.notifyNeighboursGetData(ou.SensorData)
-
-			case <-doneChan:
-				return
 			}
+
+		case <-doneChan:
+			return
 		}
 	}
 }
@@ -750,12 +786,12 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 145) + 5
+	//num := (rand.Float64() * 145) + 5
+	num := (rand.Float64() * 75) + 5
 	return num
 }
 
 func (ou *ObservationUnit) batteryConsumption() {
-	//timeChan := time.NewTimer(time.Second).C
 	tickChan := time.NewTicker(time.Millisecond * 1000).C
 
 	doneChan := make(chan bool)
@@ -766,19 +802,11 @@ func (ou *ObservationUnit) batteryConsumption() {
 
 	for {
 		select {
-		//case <- timeChan:
-		//    fmt.Println("Timer expired.\n")
 		case <-tickChan:
-			//fmt.Println("Ticker ticked")
-			//fmt.Println(secondInterval)
 			ou.BatteryTime -= secondInterval
-			//fmt.Println(ou.BatteryTime)
 
-			if ou.BatteryTime == 0 {
-				//fmt.Printf("Batterytime is 0..\n")
-			} else if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.20) {
+			if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.20) {
 				fmt.Printf("\n(%s): have low battery.. Need to sleep to save power and chose a new CH\n", ou.Addr)
-				//saveBatterytime()
 			}
 		case <-doneChan:
 			ou.BatteryTime = 0
@@ -824,7 +852,7 @@ func listContains(s []string, e string) bool {
 }
 
 func (ou *ObservationUnit) measureSensorData() {
-	tickChan := time.NewTicker(time.Second * 5).C
+	tickChan := time.NewTicker(time.Second * 10).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -849,8 +877,7 @@ func (ou *ObservationUnit) measureSensorData() {
 			sd.DateTime = append(sd.DateTime, start)
 			*/
 			go ou.byteSensor()
-			fmt.Printf("\n(%s): data is: %b\n", ou.Addr, ou.SensorData.Data)
-			ou.SensorData.Fingerprint = hashByte(ou.SensorData.Data)
+			//fmt.Printf("\n(%s): data is: %b\n", ou.Addr, ou.SensorData.Data)
 
 		case <-doneChan:
 			return
@@ -905,8 +932,6 @@ func bandwidth() int {
 		i--
 	}
 
-	//fmt.Println(k, bw[k])
-	//fmt.Println(bw[k])
 	return bw[k]
 
 }
