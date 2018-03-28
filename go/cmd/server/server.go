@@ -254,7 +254,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 /*Receive a new leader from a neighbour. Update clusterhead and clusterhead-status*/
 func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n\n------------------------------------------\n###(%s): BROADCAST HANDLER.. Received a new leader. ###\n------------------------------------------\n", ou.Addr)
+	//fmt.Printf("\n\n------------------------------------------\n###(%s): BROADCAST HANDLER.. Received a new leader. ###\n------------------------------------------\n", ou.Addr)
 	var pkt CHpkt
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -267,11 +267,9 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	fmt.Printf("(%s): Received packet from %s\n", ou.Addr, pkt.Source)
+	//fmt.Printf("(%s): Received packet from %s\n", ou.Addr, pkt.Source)
 
-	if ou.ClusterHead == pkt.ClusterHead {
-		//fmt.Printf("\n(%s) clusterhead: %s and pkt-ch %s is similar.. No need to do anything..\n", ou.Addr, ou.ClusterHead, pkt.ClusterHead)
-	} else {
+	if ou.ClusterHead != pkt.ClusterHead {
 		//fmt.Printf("\n(%s) CH is %s, changes to pkt-ch: %s\n", ou.Addr, ou.ClusterHead, pkt.ClusterHead)
 		ou.ClusterHead = pkt.ClusterHead
 	}
@@ -285,17 +283,12 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 
 	for _, addr := range ou.Neighbours {
 		if addr != ou.ClusterHead && addr != pkt.Source {
-			//fmt.Printf("\n(%s) have neighbours. Send to %s\n", ou.Addr, addr)
-			//fmt.Printf("%s is not ch (%s)\n", addr, ou.ClusterHead)
-			//fmt.Printf("(%s) appending own addr to path\n", ou.Addr)
+
 			if !listContains(pkt.Path, ou.Addr) {
 				pkt.Path = append(pkt.Path, ou.Addr)
 			}
-
 			go ou.broadcastNewLeader(pkt)
-
 		} else {
-			//fmt.Printf("\n(%s): %s is clusterhead or/and pkt-source %s. No need to send update\n", ou.Addr, addr, pkt.Source)
 			continue
 		}
 	}
@@ -303,7 +296,7 @@ func (ou *ObservationUnit) broadcastNewLeaderHandler(w http.ResponseWriter, r *h
 
 /*Receive a msg from CH about sending (accumulated) data to CH. */
 func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
+	//fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
 	var sData SensorData
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -316,11 +309,13 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
 
-	fmt.Printf("\n(%s): Received msg from %s\n", ou.Addr, sData.Source)
+	fmt.Printf("\n(%s): Received cont-msg from %s\n", ou.Addr, sData.Source)
+	//ID BLIR 0!!!!!
+	tmp := sData.ID
+	fmt.Println(tmp)
+	fmt.Printf("\n(%s): data-id is %d and ou-id is: %d\n", ou.Addr, sData.ID, ou.SensorData.ID)
 
-	if sData.ID == ou.SensorData.ID {
-		fmt.Printf("\n(%s): Have received this msg before.. \n", ou.Addr)
-	} else {
+	if sData.ID != ou.SensorData.ID {
 		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
 		go ou.notifyNeighboursGetData(sData)
 
@@ -337,12 +332,14 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 			//Need to accumulate data with neighbours
 			go ou.accumulateSensorData(sData)
 		}
+	} else {
+		fmt.Printf("(%s): Data id and sensordata id similar..\n", ou.Addr)
 	}
 }
 
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
-	//var counter sync.RWMutex
+	//var lock sync.RWMutex
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
@@ -358,20 +355,20 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 		fmt.Printf("\n(%s): Received data from %s. Need to accumulate that data\n", ou.Addr, sData.Source)
 		fmt.Printf("\n(%s): sensordata from %s looks like this: %+v\n", ou.Addr, ou.Source, sData)
 
-		//ou.DataBaseStation.BSdata = append(ou.DataBaseStation.BSdata, sData.Data)
 		if len(ou.BSdatamap) == 0 {
-			fmt.Printf("(%s): BSdatamap is empty.. Append data %+v\n", ou.Addr, ou.BSdatamap)
-			//counter.Lock()
+			fmt.Printf("(%s): [0] BSdatamap is empty.. Append data %+v\n", ou.Addr, ou.BSdatamap)
+			//lock.Lock()
+			//defer lock.Unlock()
 			//fmt.Printf("(%s): Locked for writing to map..\n", ou.Addr)
-			//defer counter.Unlock()
+
 			ou.BSdatamap[sData.Fingerprint] = sData.Data
-			fmt.Printf("(%s): Added data to BSdatamap %+v\n", ou.Addr, ou.BSdatamap)
+			fmt.Printf("(%s): [0] Added data to BSdatamap %+v\n", ou.Addr, ou.BSdatamap)
 
 		} else {
 			for key, value := range ou.BSdatamap {
 				fmt.Println("key:", key, "value:", []byte(value))
 				if key == sData.Fingerprint {
-					fmt.Printf("(%s): [1.] Key and Fingerprint is similar: %d\n", ou.Addr, key)
+					fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//var tmp = ou.BSdatamap[sData.Fingerprint]
 					//tmp = []byte{ou.BSdatamap[sData.Fingerprint], sData.Data}
 					//tmp = []byte(fmt.Sprintf("%s%s", string(tmp), string(sData.Data)))
@@ -382,9 +379,11 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 					//fmt.Printf("(%s): [1.] Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
 					//fmt.Printf("\n\n-------------\n\n")
 				} else if key != sData.Fingerprint {
-					fmt.Printf("(%s): [2.] Key and Fingerprint is not similar: %d\n", ou.Addr, key)
+					fmt.Printf("(%s): [2] Key and Fingerprint is not similar: %d\n", ou.Addr, key)
+					//lock.Lock()
+					//defer lock.Unlock()
 					ou.BSdatamap[sData.Fingerprint] = sData.Data
-					fmt.Printf("(%s): [2.]  Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
+					fmt.Printf("(%s): [2]  Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
 				}
 			}
 		}
@@ -515,12 +514,10 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 		if !listContains(pkt.Path, addr) {
 			//fmt.Printf("\n(%s): Contact %s because it's not in pkt-path %v..\n", ou.Addr, addr, pkt.Path)
 			url := fmt.Sprintf("http://%s/broadcastNewLeader", addr)
-			fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+			//fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
 			pkt.Source = ou.Addr
 			pkt.Destination = addr
-
-			fmt.Printf("\n")
 
 			b, err := json.Marshal(pkt)
 			if err != nil {
@@ -532,11 +529,11 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 			//fmt.Println("\nAddressbody: ", addressBody)
 
 			_, err = http.Post(url, "string", addressBody)
-			//errorMsg("Error posting to neighbour ", err)
-			if err != nil {
+			errorMsg("Error posting to neighbour ", err)
+			/*if err != nil {
 				fmt.Printf("(%s): Try to post broadcast %s\n", ou.Addr, err)
 				continue
-			}
+			}*/
 		} else {
 			//fmt.Printf("\n(%s): Address %s is already in pkt-path. Do not need to contact..\n", ou.Addr, addr)
 			continue
@@ -567,6 +564,8 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 				return
 			}
 
+			fmt.Printf("(%s): Sending this get-data msg: %+v\n\n", ou.Addr, ou.SensorData)
+
 			addressBody := strings.NewReader(string(b))
 			//fmt.Println("\nAddressbody: ", addressBody)
 
@@ -590,7 +589,7 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	//fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
 
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
-	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+	//fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
 	//sensorData.Source = ou.Addr
 
@@ -599,7 +598,7 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	sensorData.Fingerprint = hashByte(ou.SensorData.Data)
 	sensorData.Data = ou.SensorData.Data
 
-	fmt.Printf("\n(%s): sending: %+v\n", ou.Addr, sensorData)
+	//fmt.Printf("\n(%s): sending: %+v\n", ou.Addr, sensorData)
 
 	b, err := json.Marshal(sensorData)
 	if err != nil {
@@ -698,8 +697,8 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 	var pkt CHpkt
 
-	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
-		fmt.Printf("\n\nLOCALHOST:8085 IS CH!!!\n\n")
+	if ou.Addr == "localhost:8088" && len(ou.ReachableNeighbours) != 0 {
+		fmt.Printf("\n\nLOCALHOST:8088 IS CH!!!\n\n")
 		ou.ClusterHeadCount++
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
@@ -734,6 +733,16 @@ func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
 func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	fmt.Printf("\n(%s): Accumulate data with data from %s\n", ou.Addr, sData.Source)
 
+	/*for _, val := range sData.Data {
+		fmt.Printf("(%s): Value is %d", ou.Addr, val)
+	}*/
+
+	log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
+
+	//ou.SensorData.Data = append(ou.SensorData.Data, i)
+
+	//ou.BSdatamap[sData.Fingerprint] = sData.Data
+	fmt.Printf("(%s): Accumulated data to sensordata  %+v\n", ou.Addr, ou.SensorData.Data)
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
@@ -826,7 +835,7 @@ func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
 	//num := (rand.Float64() * 145) + 5
-	num := (rand.Float64() * 75) + 5
+	num := (rand.Float64() * 150) + 5
 	return num
 }
 
@@ -904,20 +913,7 @@ func (ou *ObservationUnit) measureSensorData() {
 		//case <- timeChan:
 		//    fmt.Println("Timer expired.\n")
 		case <-tickChan:
-			//start := time.Now().Format("2006-01-02 15:04:05") //.Format(time.RFC850)
-			//fmt.Println(start)
-			/*temp := temperatureSensor()
-			weather := weatherSensor()
-			//fmt.Println(temp, weather)
-
-			//Add values to sensorData
-			sd.Weather = append(sd.Weather, weather)
-			sd.Temperature = append(sd.Temperature, temp)
-			sd.DateTime = append(sd.DateTime, start)
-			*/
 			go ou.byteSensor()
-			//fmt.Printf("\n(%s): data is: %b\n", ou.Addr, ou.SensorData.Data)
-
 		case <-doneChan:
 			return
 		}
@@ -929,34 +925,7 @@ func (ou *ObservationUnit) byteSensor() {
 	//token := make([]byte, 4)
 	ou.SensorData.Data = make([]byte, 4)
 	rand.Read(ou.SensorData.Data)
-	//fmt.Println(ou.SensorData.Data)
-	//num := randomInt(1, 5000)
-	//ou.SensorData.Data = append(ou.SensorData.Data, byte(num))
 }
-
-/*func weatherSensor() string {
-	weather := make([]string, 0)
-	weather = append(weather,
-		"Sunny",
-		"Cloudy",
-		"Rain",
-		"Windy",
-		"Snow")
-
-	rand.Seed(time.Now().UTC().UnixNano())
-	rand_weather := weather[rand.Intn(len(weather))]
-	//ou.Weather = append(ou.Weather, rand_weather)
-	//fmt.Println("Weather: ", ou.Weather)
-	return rand_weather
-}*/
-
-/*func temperatureSensor() int {
-	rand_number := randomInt(-30, 20)
-	//ou.Temperature = append(ou.Temperature, rand_number)
-	//fmt.Println(rand_number)
-	//fmt.Println("Temperature: ", ou.Temperature)
-	return rand_number
-}*/
 
 /*Return a random int describing which bandwidth-type for specific OU.
 Use this value to determine if OU can be CH*/
