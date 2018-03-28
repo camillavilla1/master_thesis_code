@@ -21,6 +21,7 @@ import (
 var ouPort string
 var ouHost string
 
+/*SimPort is port of simulator*/
 var SimPort string
 
 var reachableHosts []string
@@ -32,6 +33,7 @@ var wg sync.WaitGroup
 
 var biggestAddress string
 
+/*ObservationUnit is a struct of a OU*/
 type ObservationUnit struct {
 	Addr                string   `json:"Addr"`
 	ID                  uint32   `json:"Id"`
@@ -50,6 +52,7 @@ type ObservationUnit struct {
 	SensorData          `json:"-"`
 }
 
+/*CHpkt is a struct containg info about path to CH*/
 type CHpkt struct {
 	Path        []string
 	Source      string
@@ -57,6 +60,7 @@ type CHpkt struct {
 	ClusterHead string
 }
 
+/*SensorData is data from "sensors" on the OU*/
 type SensorData struct {
 	ID          uint32
 	Fingerprint uint32
@@ -188,7 +192,7 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 	go ou.contactNewNeighbour()
 }
 
-/*There are no OUs in range of the OU..*/
+/*NoReachableNeighboursHandler have no OUs in range of the OU..*/
 func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
 	//fmt.Printf("\n### OU received no neighbour (Handler) ###\n")
 	//fmt.Printf("\n\nOU IS %s\n", ou.Addr)
@@ -380,6 +384,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 
 }
 
+/*IndexHandler doesn't do anything*/
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Don't use the request body. But we should consume it anyway.
 	io.Copy(ioutil.Discard, r.Body)
@@ -434,7 +439,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 	//fmt.Printf("### Contacting neighbours.. ###\n")
 	var i int
 	for _, neighbour := range ou.ReachableNeighbours {
-		i += 1
+		i++
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		//fmt.Printf("\nContacting neighbour url: %s ", url)
 		//fmt.Printf(" with body: %s \n", ou.Addr)
@@ -615,7 +620,7 @@ func (ou *ObservationUnit) shutdownOu() {
 }
 
 /*Chose if node is the biggest and become chief..*/
-func (ou *ObservationUnit) biggestId() bool {
+func (ou *ObservationUnit) biggestID() bool {
 	var biggest uint32
 
 	for i, neighbour := range ou.ReachableNeighbours {
@@ -634,9 +639,9 @@ func (ou *ObservationUnit) biggestId() bool {
 
 	if biggest == ou.ID {
 		return true
-	} else {
-		return false
 	}
+
+	return false
 }
 
 func (ou *ObservationUnit) clusterHeadElection() {
@@ -647,7 +652,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
 		fmt.Printf("\n\nLOCALHOST:8085 IS CH!!!\n\n")
-		ou.ClusterHeadCount += 1
+		ou.ClusterHeadCount++
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
 		pkt.ClusterHead = ou.Addr
@@ -696,7 +701,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 		if randNum < threshold {
 			//if randNum > threshold {
 			fmt.Printf("\n---------------------\n(%s): CAN BE CH!!!! BROADCAST NEW LEADER TO NEIGHBOURS\n---------------------\n", ou.Addr)
-			ou.ClusterHeadCount += 1
+			ou.ClusterHeadCount++
 			ou.ClusterHead = ou.Addr
 			ou.IsClusterHead = true
 			pkt.ClusterHead = ou.Addr
@@ -725,7 +730,7 @@ func (ou *ObservationUnit) getData() {
 		case <-tickChan:
 			if ou.IsClusterHead == true {
 				fmt.Printf("\n(%s): IS CLUSTER HEAD.. SHOULD ASK FOR DATA\n", ou.Addr)
-				num += 1
+				num++
 				ou.SensorData.ID = ou.ID + num
 				fmt.Printf("(%s): SENSORDATA ID: %d\n", ou.Addr, ou.SensorData.ID)
 				go ou.notifyNeighboursGetData(ou.SensorData)
@@ -873,11 +878,12 @@ func (ou *ObservationUnit) measureSensorData() {
 
 func (ou *ObservationUnit) byteSensor() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	token := make([]byte, 4)
-	rand.Read(token)
-	fmt.Println(token)
-	num := randomInt(1, 5000)
-	ou.SensorData.Data = append(ou.SensorData.Data, byte(num))
+	//token := make([]byte, 4)
+	ou.SensorData.Data = make([]byte, 4)
+	rand.Read(ou.SensorData.Data)
+	fmt.Println(ou.SensorData.Data)
+	//num := randomInt(1, 5000)
+	//ou.SensorData.Data = append(ou.SensorData.Data, byte(num))
 }
 
 /*func weatherSensor() string {
