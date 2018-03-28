@@ -50,6 +50,7 @@ type ObservationUnit struct {
 	PathToCh            []string `json:"-"`
 	CHpercentage        float64  `json:"-"`
 	SensorData          `json:"-"`
+	DataBaseStation     `json:"-"`
 }
 
 /*CHpkt is a struct containg info about path to CH*/
@@ -67,6 +68,11 @@ type SensorData struct {
 	Data        []byte
 	Source      string
 	Destination string
+}
+
+/*DataBaseStation is data sent to/gathered from the BS*/
+type DataBaseStation struct {
+	BSdatamap map[uint32][]byte
 }
 
 func main() {
@@ -127,7 +133,9 @@ func startServer() {
 			Fingerprint: 0,
 			Data:        []byte{},
 			Source:      "",
-			Destination: ""}}
+			Destination: ""},
+		DataBaseStation: DataBaseStation{
+			BSdatamap: make(map[uint32][]byte)}}
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
@@ -322,8 +330,6 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 		if len(ou.PathToCh) <= 1 {
 			if ou.PathToCh[0] == ou.ClusterHead {
 				fmt.Printf("\n(%s) Send data to CH \n", ou.Addr)
-				sData.Source = ou.Addr
-				sData.Fingerprint = hashByte(ou.SensorData.Data)
 				go ou.sendDataToLeader(sData)
 			}
 		} else {
@@ -336,6 +342,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
+	//var counter sync.RWMutex
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
@@ -349,8 +356,42 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 
 	if ou.IsClusterHead == true {
 		fmt.Printf("\n(%s): Received data from %s. Need to accumulate that data\n", ou.Addr, sData.Source)
-		fmt.Printf("\n(%s): sensordata looks like this: %x, with fingerprint: %b", ou.Addr, sData.Data, sData.Fingerprint)
+		fmt.Printf("\n(%s): sensordata from %s looks like this: %+v\n", ou.Addr, ou.Source, sData)
+
+		//ou.DataBaseStation.BSdata = append(ou.DataBaseStation.BSdata, sData.Data)
+		if len(ou.BSdatamap) == 0 {
+			fmt.Printf("(%s): BSdatamap is empty.. Append data %+v\n", ou.Addr, ou.BSdatamap)
+			//counter.Lock()
+			//fmt.Printf("(%s): Locked for writing to map..\n", ou.Addr)
+			//defer counter.Unlock()
+			ou.BSdatamap[sData.Fingerprint] = sData.Data
+			fmt.Printf("(%s): Added data to BSdatamap %+v\n", ou.Addr, ou.BSdatamap)
+
+		} else {
+			for key, value := range ou.BSdatamap {
+				fmt.Println("key:", key, "value:", []byte(value))
+				if key == sData.Fingerprint {
+					fmt.Printf("(%s): [1.] Key and Fingerprint is similar: %d\n", ou.Addr, key)
+					//var tmp = ou.BSdatamap[sData.Fingerprint]
+					//tmp = []byte{ou.BSdatamap[sData.Fingerprint], sData.Data}
+					//tmp = []byte(fmt.Sprintf("%s%s", string(tmp), string(sData.Data)))
+
+					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
+
+					//ou.BSdatamap[sData.Fingerprint] = tmp
+					//fmt.Printf("(%s): [1.] Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
+					//fmt.Printf("\n\n-------------\n\n")
+				} else if key != sData.Fingerprint {
+					fmt.Printf("(%s): [2.] Key and Fingerprint is not similar: %d\n", ou.Addr, key)
+					ou.BSdatamap[sData.Fingerprint] = sData.Data
+					fmt.Printf("(%s): [2.]  Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
+				}
+			}
+		}
+
 	}
+
+	fmt.Printf("\n\n(%s): MAP IS: %+v!!!!!\n\n\n", ou.Addr, ou.BSdatamap)
 
 }
 
@@ -551,7 +592,14 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
 	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
+	//sensorData.Source = ou.Addr
+
 	sensorData.Source = ou.Addr
+	sensorData.Destination = lastElem
+	sensorData.Fingerprint = hashByte(ou.SensorData.Data)
+	sensorData.Data = ou.SensorData.Data
+
+	fmt.Printf("\n(%s): sending: %+v\n", ou.Addr, sensorData)
 
 	b, err := json.Marshal(sensorData)
 	if err != nil {
@@ -717,7 +765,7 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 func (ou *ObservationUnit) getData() {
 	var num uint32
 	num = 0
-	tickChan := time.NewTicker(time.Second * 60).C
+	tickChan := time.NewTicker(time.Second * 30).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -881,7 +929,7 @@ func (ou *ObservationUnit) byteSensor() {
 	//token := make([]byte, 4)
 	ou.SensorData.Data = make([]byte, 4)
 	rand.Read(ou.SensorData.Data)
-	fmt.Println(ou.SensorData.Data)
+	//fmt.Println(ou.SensorData.Data)
 	//num := randomInt(1, 5000)
 	//ou.SensorData.Data = append(ou.SensorData.Data, byte(num))
 }
