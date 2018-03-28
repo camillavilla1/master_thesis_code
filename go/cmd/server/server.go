@@ -89,20 +89,6 @@ func main() {
 	}
 }
 
-/*func (ou *ObservationUnit) write_to_file() {
-	// If the file doesn't exist, create it, or append to the file
-	f, err := os.OpenFile("test.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := f.Write([]byte("appended some data\n")); err != nil {
-		log.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
-		log.Fatal(err)
-	}
-}*/
-
 func addCommonFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&SimPort, "Simport", ":0", "Simulation (prefix with colon)")
 	flagset.StringVar(&ouHost, "host", "localhost", "OU host")
