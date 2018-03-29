@@ -38,9 +38,6 @@ type ObservationUnit struct {
 	Xcor                float64
 	Ycor                float64
 	CHpercentage        float64
-	//clusterHead string
-	//temperature int
-	//weather string
 }
 
 var runningOus []ObservationUnit
@@ -58,8 +55,6 @@ func main() {
 	flag.StringVar(&ouPort, "Simport", ":8080", "Simulation port (prefix with colon)")
 
 	flag.Parse()
-
-	fmt.Println( /**numOU, */ *numCH)
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/notifySimulation", reachableOuHandler)
@@ -139,19 +134,17 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 
 func getClusterheadPercentage(ou ObservationUnit) {
 	ou.CHpercentage = float64(*numCH) / 100
-	fmt.Println(ou.CHpercentage)
 
 	//fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
 	url := fmt.Sprintf("http://%s/clusterheadPercentage", ou.Addr)
-	fmt.Printf("SendingCH percentage to url: %s\n", url)
+	fmt.Printf("SendingCH percentage to url: %s ", url)
 
 	b, err := json.Marshal(ou.CHpercentage)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("with data: ")
-	fmt.Println(string(b))
+	fmt.Printf(" with data: %s.\n", string(b))
 
 	addressBody := strings.NewReader(string(b))
 
@@ -177,7 +170,7 @@ func findNearestneighbours(ou ObservationUnit) {
 
 	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.ReachableNeighbours) >= 1 {
-		fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
+		//fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
 		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutReachableNeighbour(ou)
@@ -189,7 +182,7 @@ func findNearestneighbours(ou ObservationUnit) {
 }
 
 func tellOuNoReachableNeighbours(ou ObservationUnit) {
-	fmt.Printf("\n### tell Ou NoReachableNeighbours ###\n")
+	//fmt.Printf("\n### tell Ou NoReachableNeighbours ###\n")
 	url := fmt.Sprintf("http://%s/noReachableNeighbours", ou.Addr)
 	fmt.Printf("Sending no reachable neighbours to url: %s\n", url)
 
