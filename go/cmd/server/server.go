@@ -160,6 +160,7 @@ func startServer() {
 	http.HandleFunc("/broadcastElectNewLeader", ou.broadcastElectNewLeaderHandler)
 
 	go ou.batteryConsumption()
+	//go ou.batteryConsumption2()
 	go ou.tellSimulationUnit()
 	go ou.measureSensorData()
 	go ou.getData()
@@ -744,8 +745,8 @@ func (ou *ObservationUnit) clusterHeadElection() {
 
 	var pkt CHpkt
 
-	if ou.Addr == "localhost:8085" && len(ou.ReachableNeighbours) != 0 {
-		fmt.Printf("\n\nLOCALHOST:8088 IS CH!!!\n\n")
+	if ou.Addr == "localhost:8083" && len(ou.ReachableNeighbours) != 0 {
+		fmt.Printf("\n\nLOCALHOST:8083 IS CH!!!\n\n")
 		ou.ClusterHeadCount++
 		ou.ClusterHead = ou.Addr
 		ou.IsClusterHead = true
@@ -883,8 +884,25 @@ func estimateLocation() float64 {
 	return num
 }
 
+func (ou *ObservationUnit) batteryConsumption2() {
+
+	tmp := randomInt64(batteryStart)
+	fmt.Printf("(%s): Tmp battery is %d\n", ou.Addr, tmp)
+
+	if float64(tmp) < (float64(batteryStart) * 0.40) {
+		fmt.Printf("(%s): Not much battery left..\n", ou.Addr)
+		if ou.IsClusterHead == true {
+			ou.ElectNewLeader.ID = hashAddress(ou.Addr)
+			ou.ElectNewLeader.Source = ou.Addr
+			fmt.Printf("(%s): Is CH, broadcast to neighbours about electing a new leader..\n", ou.Addr)
+			go ou.broadcastElectNewLeader()
+		}
+
+	}
+}
+
 func (ou *ObservationUnit) batteryConsumption() {
-	tickChan := time.NewTicker(time.Millisecond * 1000).C
+	tickChan := time.NewTicker(time.Second * 10).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -895,7 +913,8 @@ func (ou *ObservationUnit) batteryConsumption() {
 	for {
 		select {
 		case <-tickChan:
-			ou.BatteryTime -= secondInterval
+			//go ou.batteryConsumption2()
+			//ou.BatteryTime -= secondInterval
 
 			if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.50) {
 				fmt.Printf("\n(%s): have low battery.. Need to sleep to save power and chose a new CH\n", ou.Addr)
@@ -919,6 +938,11 @@ func setMaxProcs() int {
 		return maxProcs
 	}
 	return numCPU
+}
+
+func randomInt64(max int64) int64 {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return rand.Int63n(max)
 }
 
 func randomInt(min, max int) int {
