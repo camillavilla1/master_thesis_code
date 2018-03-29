@@ -310,15 +310,11 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	r.Body.Close()
 
 	fmt.Printf("\n(%s): Received cont-msg from %s\n", ou.Addr, sData.Source)
-	//ID BLIR 0!!!!!
-	tmp := sData.ID
-	fmt.Printf("(%s): TMP id is: %d\n", ou.Addr, tmp)
-
-	fmt.Printf("\n(%s): data-id is %d and ou-id is: %d\n", ou.Addr, sData.ID, ou.SensorData.ID)
 
 	if sData.ID != ou.SensorData.ID {
 		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
 		ou.SensorData.ID = sData.ID
+
 		go ou.notifyNeighboursGetData(sData)
 
 		//if ch is neighbour, no need for accumulate data..
@@ -353,18 +349,13 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.IsClusterHead == true {
-		fmt.Printf("\n(%s): Received data from %s. Need to accumulate that data\n", ou.Addr, sData.Source)
-		fmt.Printf("\n(%s): sensordata from %s looks like this: %+v\n", ou.Addr, ou.Source, sData)
-
 		if len(ou.BSdatamap) == 0 {
-			fmt.Printf("(%s): [0] BSdatamap is empty.. Append data %+v\n", ou.Addr, ou.BSdatamap)
 			//lock.Lock()
 			//defer lock.Unlock()
 			//fmt.Printf("(%s): Locked for writing to map..\n", ou.Addr)
 
 			ou.BSdatamap[sData.Fingerprint] = sData.Data
-			fmt.Printf("(%s): [0] Added data to BSdatamap %+v\n", ou.Addr, ou.BSdatamap)
-
+			fmt.Printf("(%s): [0] Added data to BSdatamap\n", ou.Addr)
 		} else {
 			for key, value := range ou.BSdatamap {
 				fmt.Println("key:", key, "value:", []byte(value))
@@ -380,20 +371,18 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 					//fmt.Printf("(%s): [1.] Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
 					//fmt.Printf("\n\n-------------\n\n")
 				} else if key != sData.Fingerprint {
-					fmt.Printf("(%s): [2] Key and Fingerprint is not similar: %d\n", ou.Addr, key)
 					//lock.Lock()
 					//defer lock.Unlock()
 					ou.BSdatamap[sData.Fingerprint] = sData.Data
-					fmt.Printf("(%s): [2]  Added data to BSdatamap %+v\n\n", ou.Addr, ou.BSdatamap)
+					fmt.Printf("(%s): [2]  Added data to BSdatamap\n\n", ou.Addr)
 				}
 			}
 		}
-		fmt.Printf("\n\n(%s): MAP IS: %+v!!!!!\n\n\n", ou.Addr, ou.BSdatamap)
+		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\\n\n", ou.Addr, ou.BSdatamap)
 	} else {
 		fmt.Printf("\n(%s): is not CH. Accumulate data and send to CH..\n", ou.Addr)
 		go ou.accumulateSensorData(sData)
 	}
-
 }
 
 /*Receive ok from CH that new OU can join.*/
@@ -559,6 +548,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 			}*/
 			ou.SensorData.Source = ou.Addr
 			ou.SensorData.Destination = addr
+			//ou.SensorData.Data = []byte{}
 
 			b, err := json.Marshal(ou.SensorData)
 			if err != nil {
@@ -736,17 +726,13 @@ func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
 func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	fmt.Printf("\n(%s): Accumulate data with data from %s\n", ou.Addr, sData.Source)
 
-	/*for _, val := range sData.Data {
-		fmt.Printf("(%s): Value is %d", ou.Addr, val)
-	}*/
-
 	//log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
 
-	fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
+	//fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
 
 	ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
 
-	fmt.Printf("\n(%s) sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
+	//fmt.Printf("\n(%s) sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
 
 	go ou.sendDataToLeader(ou.SensorData)
 
@@ -838,7 +824,6 @@ func hashByte(data []byte) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(data))
 	bs := h.Sum32()
-	fmt.Printf("%x\n", bs)
 	return bs
 }
 
