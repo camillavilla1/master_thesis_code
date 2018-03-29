@@ -76,7 +76,6 @@ type DataBaseStation struct {
 }
 
 func main() {
-
 	var runMode = flag.NewFlagSet("run", flag.ExitOnError)
 	addCommonFlags(runMode)
 
@@ -688,7 +687,7 @@ func (ou *ObservationUnit) clusterHeadElection() {
 	//fmt.Printf("\n### Cluster Head Election ###\n")
 	//fmt.Printf("OU IS %s\n", ou.Addr)
 
-	var pkt CHpkt
+	/*var pkt CHpkt
 
 	if ou.Addr == "localhost:8088" && len(ou.ReachableNeighbours) != 0 {
 		fmt.Printf("\n\nLOCALHOST:8088 IS CH!!!\n\n")
@@ -698,9 +697,9 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		pkt.ClusterHead = ou.Addr
 		go ou.broadcastNewLeader(pkt)
 		//go ou.broadcastLeaderPath(pkt)
-	}
+	}*/
 
-	//go ou.clusterHeadCalculation()
+	go ou.clusterHeadCalculation()
 }
 
 func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
@@ -758,9 +757,9 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 			pkt.ClusterHead = ou.Addr
 			go ou.broadcastLeaderPath(pkt)
 			//go ou.broadcastNewLeader(pkt)
-		} /* else {
+		} else {
 			fmt.Printf("\n(%s): can not be CH because of threshold.. Wait for a path to leader..\n", ou.Addr)
-		}*/
+		}
 		//time.Sleep(5 * time.Second)
 	}
 }

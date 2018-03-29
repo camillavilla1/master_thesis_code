@@ -1,42 +1,43 @@
 package main
 
 import (
-	"flag"
-	"net/http"
-	"log"
-	"io"
-	"fmt"
-	"io/ioutil"
-	"strings"
 	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"math"
-	"time"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 var hostname string
 var ouPort string
 
 var numOU int64
+
 //var numCH int64
 var num int64
-
 
 var runningNodes []string
 var numNodesRunning int
 
 var nodeRadius float64
 var gridX int32
-var gridY int32 
+var gridY int32
 
+/*ObservationUnit is struct of an OU*/
 type ObservationUnit struct {
-	Addr string
-	ID uint32
-	Pid int
+	Addr                string
+	ID                  uint32
+	Pid                 int
 	ReachableNeighbours []string
-	Xcor float64
-	Ycor float64
-	CHpercentage float64
+	Xcor                float64
+	Ycor                float64
+	CHpercentage        float64
 	//clusterHead string
 	//temperature int
 	//weather string
@@ -58,7 +59,7 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println(/**numOU, */*numCH)
+	fmt.Println( /**numOU, */ *numCH)
 
 	http.HandleFunc("/", IndexHandler)
 	http.HandleFunc("/notifySimulation", reachableOuHandler)
@@ -73,7 +74,7 @@ func main() {
 	}
 }
 
-
+/*IndexHandler is not used*/
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// We don't use the body, but read it anyway
 	io.Copy(ioutil.Discard, r.Body)
@@ -82,23 +83,22 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Index Handler\n")
 }
 
-
 /*Remove OUnodes that are dead/don't run anymore*/
 func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	//var addrString string
 	var ou ObservationUnit
 
 	body, err := ioutil.ReadAll(r.Body)
-    errorMsg("readall: ", err)
-	
+	errorMsg("readall: ", err)
+
 	if err := json.Unmarshal(body, &ou); err != nil {
-        panic(err)
-    }
+		panic(err)
+	}
 
 	if listContains(runningNodes, ou.Addr) {
 		runningNodes = removeElement(runningNodes, ou.Addr)
 		runningOus = removeObservationUnit(runningOus, ou.Addr)
-		numNodesRunning -= 1
+		numNodesRunning--
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
@@ -108,24 +108,22 @@ func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 }
 
-
-
 /*Receive from OUnodes who's running and append them to a list.*/
 func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
-    var ou ObservationUnit
+	var ou ObservationUnit
 
-    body, err := ioutil.ReadAll(r.Body)
-    errorMsg("readall: ", err)
+	body, err := ioutil.ReadAll(r.Body)
+	errorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &ou); err != nil {
-        panic(err)
-    }
-    //fmt.Println(ou)
+		panic(err)
+	}
+	//fmt.Println(ou)
 
-    if !listContains(runningNodes, ou.Addr) {
+	if !listContains(runningNodes, ou.Addr) {
 		runningNodes = append(runningNodes, ou.Addr)
 		runningOus = append(runningOus, ou)
-		numNodesRunning += 1
+		numNodesRunning++
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
@@ -139,9 +137,8 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	//fmt.Printf("\n")
 }
 
-
 func getClusterheadPercentage(ou ObservationUnit) {
-	ou.CHpercentage = float64(*numCH)/100
+	ou.CHpercentage = float64(*numCH) / 100
 	fmt.Println(ou.CHpercentage)
 
 	//fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
@@ -183,7 +180,7 @@ func findNearestneighbours(ou ObservationUnit) {
 		fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
 		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
-		go tellOuAboutReachableNeighbour(ou)	
+		go tellOuAboutReachableNeighbour(ou)
 	} else {
 		fmt.Printf("OU have no neighbours..\n")
 		time.Sleep(1000 * time.Millisecond)
@@ -198,7 +195,6 @@ func tellOuNoReachableNeighbours(ou ObservationUnit) {
 
 	message := "OU have no reachable neighbours!"
 	addressBody := strings.NewReader(message)
-
 
 	res, err := http.Post(url, "string", addressBody)
 	errorMsg("Post request telling OU about no neighbours failed: ", err)
@@ -225,30 +221,27 @@ func tellOuAboutReachableNeighbour(ou ObservationUnit) {
 	io.Copy(os.Stdout, res.Body)
 }
 
-
 func errorMsg(s string, err error) {
 	if err != nil {
 		log.Fatal(s, err)
 	}
 }
 
-
 /*Find distance between the current node and the nearest neighbours by its "GPS" coordinates - middle of the radio-range for the OU.*/
 func findDistance(startX float64, startY float64, stopX float64, stopY float64) float64 {
-	xx := math.Pow((startX-stopX), 2)
-	yy := math.Pow((startY-stopY), 2)
+	xx := math.Pow((startX - stopX), 2)
+	yy := math.Pow((startY - stopY), 2)
 
-	res := math.Sqrt(xx+yy)
+	res := math.Sqrt(xx + yy)
 	return res
 }
-
 
 //Remove element in a slice
 func removeElement(s []string, r string) []string {
 	for i, v := range s {
 		if len(s) == 1 {
 			s = append(s[:i])
-		}else {
+		} else {
 			if v == r {
 				return append(s[:i], s[i+1:]...)
 			}
@@ -256,7 +249,6 @@ func removeElement(s []string, r string) []string {
 	}
 	return s
 }
-
 
 //Remove OU in a slice
 func removeObservationUnit(s []ObservationUnit, r string) []ObservationUnit {
@@ -268,7 +260,6 @@ func removeObservationUnit(s []ObservationUnit, r string) []ObservationUnit {
 	return s
 }
 
-
 //Check if a value is in a list/slice and return true or false
 func listContains(s []string, e string) bool {
 	for _, a := range s {
@@ -279,9 +270,6 @@ func listContains(s []string, e string) bool {
 	return false
 }
 
-
 func printSlice(s []string) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
 }
-
-
