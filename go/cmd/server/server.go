@@ -312,14 +312,14 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	fmt.Printf("\n(%s): Received cont-msg from %s\n", ou.Addr, sData.Source)
 	//ID BLIR 0!!!!!
 	tmp := sData.ID
-	fmt.Println(tmp)
+	fmt.Printf("(%s): TMP id is: %d\n", ou.Addr, tmp)
+
 	fmt.Printf("\n(%s): data-id is %d and ou-id is: %d\n", ou.Addr, sData.ID, ou.SensorData.ID)
 
 	if sData.ID != ou.SensorData.ID {
 		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
+		ou.SensorData.ID = sData.ID
 		go ou.notifyNeighboursGetData(sData)
-
-		//go ou.sendDataToLeader(sData)
 
 		//if ch is neighbour, no need for accumulate data..
 		if len(ou.PathToCh) <= 1 {
@@ -331,6 +331,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 			fmt.Printf("\n(%s) Accumulate data and send to CH (through path)\n", ou.Addr)
 			//Need to accumulate data with neighbours
 			go ou.accumulateSensorData(sData)
+			//go ou.sendDataToLeader(sData)
 		}
 	} else {
 		fmt.Printf("(%s): Data id and sensordata id similar..\n", ou.Addr)
@@ -387,10 +388,11 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 				}
 			}
 		}
-
+		fmt.Printf("\n\n(%s): MAP IS: %+v!!!!!\n\n\n", ou.Addr, ou.BSdatamap)
+	} else {
+		fmt.Printf("\n(%s): is not CH. Accumulate data and send to CH..\n", ou.Addr)
+		go ou.accumulateSensorData(sData)
 	}
-
-	fmt.Printf("\n\n(%s): MAP IS: %+v!!!!!\n\n\n", ou.Addr, ou.BSdatamap)
 
 }
 
@@ -550,7 +552,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 		if addr != sensorData.Source {
 			//if !listContains(sensorData.Path, addr) {
 			url := fmt.Sprintf("http://%s/notifyNeighboursGetData", addr)
-			fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+			fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
 
 			/*	if !listContains(sensorData.Path, ou.Addr) {
 				sensorData.Path = append(sensorData.Path, ou.Addr)
@@ -582,14 +584,15 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 }
 
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
-	lastElem := ou.PathToCh[len(ou.PathToCh)-1]
 
+	lastElem := ou.PathToCh[len(ou.PathToCh)-1]
+	fmt.Printf("\n(%s): Send data to last node in path: %s ..\n\n", ou.Addr, lastElem)
 	//removing last element
 	//newPath := ou.PathToCh[:len(ou.PathToCh)-1]
 	//fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
 
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
-	//fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
 	//sensorData.Source = ou.Addr
 
@@ -623,7 +626,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 	//fmt.Println("Battery is ", ou.BatteryTime)
 
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
-	fmt.Printf("(%s): Sending to url: %s.\n", ou.Addr, url)
+	//fmt.Printf("(%s): Sending to url: %s.\n", ou.Addr, url)
 
 	b, err := json.Marshal(ou)
 	if err != nil {
@@ -737,12 +740,17 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 		fmt.Printf("(%s): Value is %d", ou.Addr, val)
 	}*/
 
-	log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
+	//log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
+
+	fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
+
+	ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
+
+	fmt.Printf("\n(%s) sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
+
+	go ou.sendDataToLeader(ou.SensorData)
 
 	//ou.SensorData.Data = append(ou.SensorData.Data, i)
-
-	//ou.BSdatamap[sData.Fingerprint] = sData.Data
-	fmt.Printf("(%s): Accumulated data to sensordata  %+v\n", ou.Addr, ou.SensorData.Data)
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
@@ -789,8 +797,11 @@ func (ou *ObservationUnit) getData() {
 				fmt.Printf("\n(%s): IS CLUSTER HEAD.. SHOULD ASK FOR DATA\n", ou.Addr)
 				num++
 				ou.SensorData.ID = ou.ID + num
+				tmp := ou.SensorData.Data
+				ou.SensorData.Data = []byte{}
 				fmt.Printf("(%s): SENSORDATA ID: %d\n", ou.Addr, ou.SensorData.ID)
 				go ou.notifyNeighboursGetData(ou.SensorData)
+				ou.SensorData.Data = tmp
 			}
 
 		case <-doneChan:
