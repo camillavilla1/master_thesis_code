@@ -161,7 +161,6 @@ func startServer() {
 
 	go ou.checkBatteryStatus()
 	go ou.batteryConsumption()
-	//go ou.batteryConsumption2()
 	go ou.tellSimulationUnit()
 	go ou.measureSensorData()
 	go ou.getData()
@@ -175,7 +174,6 @@ func startServer() {
 
 /*Get cluster percentage from Simulation.*/
 func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\n### Receiving cluster head percentage from Simulator ###\n")
 	var chPercentage float64
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -193,8 +191,6 @@ func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r
 
 /*Receive neighbours from simulation. Contact neighbours to say "Hi, Here I am"*/
 func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\n### ReachableNeighbours Handler ###\n")
-	//fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -214,8 +210,6 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 
 /*NoReachableNeighboursHandler have no OUs in range of the OU..*/
 func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\n### OU received no neighbour (Handler) ###\n")
-	//fmt.Printf("\n\nOU IS %s\n", ou.Addr)
 	var addrString string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &addrString)
@@ -231,28 +225,20 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
 func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("OU IS %s\n", ou.Addr)
-	//fmt.Printf("### OU received a new neighbour (Handler) ###\n")
 	var newNeighbour string
-	//var data []string
 
 	pc, rateErr := fmt.Fscanf(r.Body, "%s", &newNeighbour)
 	if pc != 1 || rateErr != nil {
 		log.Printf("Error parsing Post request: (%d items): %s", pc, rateErr)
 	}
 
-	//fmt.Println("New neighbour is:", newNeighbour)
-
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
 	var data []string
-
 	data = append(data, ou.Addr)
 	data = append(data, newNeighbour)
 	data = append(data, ou.ClusterHead)
-
-	//fmt.Printf("\n[ou.addr, newNeighbour, clusterhead]\n")
 
 	if !listContains(ou.Neighbours, newNeighbour) {
 		ou.Neighbours = append(ou.Neighbours, newNeighbour)
@@ -260,8 +246,6 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 	time.Sleep(1000 * time.Millisecond)
 	go ou.tellContactingOuOk(data)
-	//fmt.Println(ou)
-
 }
 
 /*Receive a new leader from a neighbour. Update clusterhead and clusterhead-status*/
@@ -389,8 +373,6 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 
 /*Receive ok from CH that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\n###(%s):  Received OK from neighbour. Connect OU to new neighbour!\n", ou.Addr)
-
 	var data []string
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -404,7 +386,6 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	defer r.Body.Close()
 
 	neighOu := strings.Join(data[:1], "") //first element
-	//fmt.Println(url2)
 	//newOu := strings.Join(data[1:2],"") //middle element, nr 2
 	clusterHead := strings.Join(data[2:], "")
 
@@ -413,7 +394,6 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	ou.ClusterHead = clusterHead
-	//fmt.Println(ou)
 }
 
 func (ou *ObservationUnit) broadcastElectNewLeaderHandler(w http.ResponseWriter, r *http.Request) {
@@ -465,9 +445,6 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 
 /*Tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(data []string) {
-	//fmt.Printf("\nOU IS %s\n", ou.Addr)
-	//fmt.Printf("### Tell contacting Neighbour that it's ok to connect ###\n")
-
 	//recOu := strings.Join(data[:1],"") //first element
 	newOu := strings.Join(data[1:2], "") //middle element, nr 2
 	//clusterHead := strings.Join(data[2:],"") //all elements except the two first
@@ -481,30 +458,22 @@ func (ou *ObservationUnit) tellContactingOuOk(data []string) {
 		return
 	}
 
-	//fmt.Printf("\n")
-	//fmt.Println(string(b))
-
 	addressBody := strings.NewReader(string(b))
 
-	//fmt.Printf("\n")
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Error posting to neighbour about connection ok: ", err)
 }
 
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect */
 func (ou *ObservationUnit) contactNewNeighbour() {
-	//fmt.Printf("\nOU IS %s\n", ou.Addr)
-	//fmt.Printf("### Contacting neighbours.. ###\n")
 	var i int
 	for _, neighbour := range ou.ReachableNeighbours {
 		i++
 		url := fmt.Sprintf("http://%s/newNeighbour", neighbour)
 		//fmt.Printf("\nContacting neighbour url: %s ", url)
-		//fmt.Printf(" with body: %s \n", ou.Addr)
 
 		addressBody := strings.NewReader(ou.Addr)
 
-		//fmt.Printf("\n")
 		_, err := http.Post(url, "string", addressBody)
 		if err != nil {
 			fmt.Printf("(%s) Try to post broadcast %s\n", ou.Addr, err)
@@ -562,7 +531,6 @@ func (ou *ObservationUnit) broadcastNewLeader(pkt CHpkt) {
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
 func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
-
 	for _, addr := range ou.Neighbours {
 
 		if addr != sensorData.Source {
@@ -806,7 +774,6 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 		} /* else {
 			fmt.Printf("\n(%s): can not be CH because of threshold.. Wait for a path to leader..\n", ou.Addr)
 		}*/
-		//time.Sleep(5 * time.Second)
 	}
 }
 
@@ -875,7 +842,6 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 145) + 5
 	num := (rand.Float64() * 150) + 5
 	return num
 }
@@ -900,11 +866,6 @@ func estimateLocation() float64 {
 func (ou *ObservationUnit) checkBatteryStatus() {
 	for {
 		if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.50) {
-			//fmt.Printf("\n(%s): have low battery.. Need to chose a new CH\n", ou.Addr)
-
-			//ou.ElectNewLeader.ID = hashAddress(ou.Addr)
-			//ou.ElectNewLeader.Source = ou.Addr
-			//go ou.broadcastElectNewLeader()
 			fmt.Printf("\n\n(%s): BATTERY IS UNDER 20\n", ou.Addr)
 			break
 		}
@@ -916,7 +877,6 @@ func (ou *ObservationUnit) checkBatteryStatus() {
 		ou.ElectNewLeader.Source = ou.Addr
 		go ou.broadcastElectNewLeader()
 	}
-
 }
 
 func (ou *ObservationUnit) batteryConsumption() {
@@ -1005,8 +965,6 @@ func (ou *ObservationUnit) measureSensorData() {
 
 	for {
 		select {
-		//case <- timeChan:
-		//    fmt.Println("Timer expired.\n")
 		case <-tickChan:
 			go ou.byteSensor()
 		case <-doneChan:
@@ -1017,7 +975,6 @@ func (ou *ObservationUnit) measureSensorData() {
 
 func (ou *ObservationUnit) byteSensor() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	//token := make([]byte, 4)
 	ou.SensorData.Data = make([]byte, 4)
 	rand.Read(ou.SensorData.Data)
 }
