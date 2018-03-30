@@ -49,9 +49,11 @@ type ObservationUnit struct {
 	Bandwidth           int      `json:"-"`
 	PathToCh            []string `json:"-"`
 	CHpercentage        float64  `json:"-"`
+	LeaderNumber        float64  `json:"-"`
 	SensorData          `json:"-"`
 	DataBaseStation     `json:"-"`
 	ElectNewLeader      `json:"-"`
+	ElectNewLeader2     `json:"-"`
 }
 
 /*CHpkt is a struct containg info about path to CH*/
@@ -80,6 +82,13 @@ type DataBaseStation struct {
 type ElectNewLeader struct {
 	Source string
 	ID     uint32
+}
+
+/*ElectNewLeader2 contains info about new leader election*/
+type ElectNewLeader2 struct {
+	Number     float64
+	LeaderPath []string
+	LeaderAddr string
 }
 
 func main() {
@@ -134,6 +143,7 @@ func startServer() {
 		Bandwidth:           bandwidth(),
 		PathToCh:            []string{},
 		CHpercentage:        0,
+		LeaderNumber:        0,
 		SensorData: SensorData{
 			ID:          0,
 			Fingerprint: 0,
@@ -144,7 +154,11 @@ func startServer() {
 			BSdatamap: make(map[uint32][]byte)},
 		ElectNewLeader: ElectNewLeader{
 			Source: "",
-			ID:     0}}
+			ID:     0},
+		ElectNewLeader2: ElectNewLeader2{
+			Number:     0.0,
+			LeaderPath: []string{},
+			LeaderAddr: ""}}
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
@@ -159,11 +173,13 @@ func startServer() {
 	http.HandleFunc("/sendDataToLeader", ou.sendDataToLeaderHandler)
 	http.HandleFunc("/broadcastElectNewLeader", ou.broadcastElectNewLeaderHandler)
 
+	http.HandleFunc("/gossipLeaderNumber", ou.gossipLeaderNumberHandler)
+
 	go ou.checkBatteryStatus()
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
-	go ou.measureSensorData()
-	go ou.getData()
+	//go ou.measureSensorData()
+	//go ou.getData()
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -220,7 +236,8 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	go ou.clusterHeadElection()
+	//go ou.clusterHeadElection()
+	go ou.clusterHeadCalculation()
 }
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
@@ -422,6 +439,26 @@ func (ou *ObservationUnit) broadcastElectNewLeaderHandler(w http.ResponseWriter,
 	}
 }
 
+func (ou *ObservationUnit) gossipLeaderNumberHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\n(%s) Gossip leader handler!\n", ou.Addr)
+	var recLeaderNumber ElectNewLeader2
+
+	body, err := ioutil.ReadAll(r.Body)
+	errorMsg("readall: ", err)
+
+	if err := json.Unmarshal(body, &recLeaderNumber); err != nil {
+		panic(err)
+	}
+
+	io.Copy(ioutil.Discard, r.Body)
+	defer r.Body.Close()
+
+	ou.ElectNewLeader2.Number = recLeaderNumber.Number
+
+	go ou.leaderElection()
+
+}
+
 /*IndexHandler doesn't do anything*/
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	// Don't use the request body. But we should consume it anyway.
@@ -483,7 +520,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 	if i == len(ou.ReachableNeighbours) {
 		time.Sleep(2 * time.Second)
-		go ou.clusterHeadElection()
+		go ou.clusterHeadCalculation()
 	}
 }
 
@@ -677,6 +714,50 @@ func (ou *ObservationUnit) broadcastElectNewLeader() {
 	}
 }
 
+func (ou *ObservationUnit) gossipLeaderNumber() {
+	fmt.Printf("(%s): Gossip leader to neighbours..\n", ou.Addr)
+	for _, addr := range ou.Neighbours {
+		url := fmt.Sprintf("http://%s/gossipLeaderNumber", addr)
+		fmt.Printf("(%s): Gossip new leader to url: %s \n", ou.Addr, url)
+
+		b, err := json.Marshal(ou.ElectNewLeader2)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		addressBody := strings.NewReader(string(b))
+
+		_, err = http.Post(url, "string", addressBody)
+		errorMsg("Post request broadcasting election of new leader failed: ", err)
+		//io.Copy(os.Stdout, res.Body)
+	}
+}
+
+func (ou *ObservationUnit) leaderElection() {
+	fmt.Printf("(%s): LEADER ELECTION!!\n", ou.Addr)
+	if ou.LeaderNumber > ou.ElectNewLeader2.Number {
+		fmt.Printf("(%s): This OU number (%f) > received number (%f)\n", ou.Addr, ou.LeaderNumber, ou.ElectNewLeader2.Number)
+		ou.ElectNewLeader2.Number = ou.LeaderNumber
+		ou.ElectNewLeader2.LeaderPath = []string{}
+		ou.ElectNewLeader2.LeaderPath = append(ou.ElectNewLeader2.LeaderPath, ou.Addr)
+		ou.ElectNewLeader2.LeaderAddr = ou.Addr
+		ou.IsClusterHead = true
+		ou.ClusterHeadCount++
+		ou.ClusterHead = ou.Addr
+		//update leader
+		//forward
+	} else if ou.LeaderNumber == ou.ElectNewLeader2.Number {
+		fmt.Printf("(%s): Elect new leader number are equal..\n", ou.Addr)
+		//should we switch to a shorter path to leader?
+	} else {
+		fmt.Printf("(%s): This OU number (%f) < received number (%f)\n", ou.Addr, ou.LeaderNumber, ou.ElectNewLeader2.Number)
+		//update leader
+		//forward
+	}
+	go ou.gossipLeaderNumber()
+}
+
 /*Chose if node is the biggest and become chief..*/
 func (ou *ObservationUnit) biggestID() bool {
 	var biggest uint32
@@ -717,7 +798,6 @@ func (ou *ObservationUnit) clusterHeadElection() {
 		go ou.broadcastNewLeader(pkt)
 		//go ou.broadcastLeaderPath(pkt)
 	}
-
 	//go ou.clusterHeadCalculation()
 }
 
@@ -753,7 +833,15 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
-	var pkt CHpkt
+	ou.LeaderNumber = randomFloat()
+	ou.ElectNewLeader2.Number = ou.LeaderNumber
+	ou.ElectNewLeader2.LeaderPath = append(ou.ElectNewLeader2.LeaderPath, ou.Addr)
+	ou.ElectNewLeader2.LeaderAddr = ou.Addr
+	fmt.Printf("(%s): Random number for leader is: %f\n", ou.Addr, ou.LeaderNumber)
+	time.Sleep(time.Second * 20)
+	go ou.gossipLeaderNumber()
+
+	/*var pkt CHpkt
 
 	//if battery is under 20% cannot OU be CH
 	if float64(ou.BatteryTime) < (float64(batteryStart) * 0.20) {
@@ -771,10 +859,8 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 			pkt.ClusterHead = ou.Addr
 			go ou.broadcastLeaderPath(pkt)
 			//go ou.broadcastNewLeader(pkt)
-		} /* else {
-			fmt.Printf("\n(%s): can not be CH because of threshold.. Wait for a path to leader..\n", ou.Addr)
-		}*/
-	}
+		}
+	}*/
 }
 
 func (ou *ObservationUnit) getData() {
@@ -808,6 +894,7 @@ func (ou *ObservationUnit) getData() {
 	}
 }
 
+/*randomFloat returns a random number in [0.0,1.0)*/
 func randomFloat() float64 {
 	num := rand.Float64()
 	return num
