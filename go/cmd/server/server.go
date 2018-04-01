@@ -49,11 +49,11 @@ type ObservationUnit struct {
 	Bandwidth           int      `json:"-"`
 	PathToCh            []string `json:"-"`
 	CHpercentage        float64  `json:"-"`
-	LeaderNumber        float64  `json:"-"`
+	RandLeaderNumber    float64  `json:"-"`
 	SensorData          `json:"-"`
 	DataBaseStation     `json:"-"`
 	ElectNewLeader      `json:"-"`
-	ElectNewLeader2     `json:"-"`
+	LeaderElection      `json:"-"`
 }
 
 /*CHpkt is a struct containg info about path to CH*/
@@ -84,11 +84,13 @@ type ElectNewLeader struct {
 	ID     uint32
 }
 
-/*ElectNewLeader2 contains info about new leader election*/
-type ElectNewLeader2 struct {
+/*LeaderElection contains info about new leader election*/
+type LeaderElection struct {
+	ID         uint32
 	Number     float64
 	LeaderPath []string
 	LeaderAddr string
+	First      bool
 }
 
 func main() {
@@ -143,7 +145,7 @@ func startServer() {
 		Bandwidth:           bandwidth(),
 		PathToCh:            []string{},
 		CHpercentage:        0,
-		LeaderNumber:        0,
+		RandLeaderNumber:    0,
 		SensorData: SensorData{
 			ID:          0,
 			Fingerprint: 0,
@@ -155,10 +157,12 @@ func startServer() {
 		ElectNewLeader: ElectNewLeader{
 			Source: "",
 			ID:     0},
-		ElectNewLeader2: ElectNewLeader2{
+		LeaderElection: LeaderElection{
+			ID:         hashAddress(hostaddress),
 			Number:     0.0,
 			LeaderPath: []string{},
-			LeaderAddr: ""}}
+			LeaderAddr: "",
+			First:      true}}
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
@@ -173,7 +177,7 @@ func startServer() {
 	http.HandleFunc("/sendDataToLeader", ou.sendDataToLeaderHandler)
 	http.HandleFunc("/broadcastElectNewLeader", ou.broadcastElectNewLeaderHandler)
 
-	http.HandleFunc("/gossipLeaderNumber", ou.gossipLeaderNumberHandler)
+	http.HandleFunc("/gossipLeader", ou.gossipLeaderHandler)
 
 	go ou.checkBatteryStatus()
 	go ou.batteryConsumption()
@@ -439,23 +443,23 @@ func (ou *ObservationUnit) broadcastElectNewLeaderHandler(w http.ResponseWriter,
 	}
 }
 
-func (ou *ObservationUnit) gossipLeaderNumberHandler(w http.ResponseWriter, r *http.Request) {
+func (ou *ObservationUnit) gossipLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n(%s) Gossip leader handler!\n", ou.Addr)
-	var recLeaderNumber ElectNewLeader2
+	var recLeaderData LeaderElection
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
 
-	if err := json.Unmarshal(body, &recLeaderNumber); err != nil {
+	if err := json.Unmarshal(body, &recLeaderData); err != nil {
 		panic(err)
 	}
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	ou.ElectNewLeader2.Number = recLeaderNumber.Number
+	//ou.LeaderElection.Number = recLeaderData.Number
 
-	go ou.leaderElection()
+	go ou.leaderElection(recLeaderData)
 
 }
 
@@ -714,13 +718,14 @@ func (ou *ObservationUnit) broadcastElectNewLeader() {
 	}
 }
 
-func (ou *ObservationUnit) gossipLeaderNumber() {
+func (ou *ObservationUnit) gossipLeader() {
 	fmt.Printf("(%s): Gossip leader to neighbours..\n", ou.Addr)
+	//time.Sleep(time.Second * 2)
 	for _, addr := range ou.Neighbours {
-		url := fmt.Sprintf("http://%s/gossipLeaderNumber", addr)
+		url := fmt.Sprintf("http://%s/gossipLeader", addr)
 		fmt.Printf("(%s): Gossip new leader to url: %s \n", ou.Addr, url)
 
-		b, err := json.Marshal(ou.ElectNewLeader2)
+		b, err := json.Marshal(ou.LeaderElection)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -734,28 +739,87 @@ func (ou *ObservationUnit) gossipLeaderNumber() {
 	}
 }
 
-func (ou *ObservationUnit) leaderElection() {
-	fmt.Printf("(%s): LEADER ELECTION!!\n", ou.Addr)
-	if ou.LeaderNumber > ou.ElectNewLeader2.Number {
-		fmt.Printf("(%s): This OU number (%f) > received number (%f)\n", ou.Addr, ou.LeaderNumber, ou.ElectNewLeader2.Number)
-		ou.ElectNewLeader2.Number = ou.LeaderNumber
-		ou.ElectNewLeader2.LeaderPath = []string{}
-		ou.ElectNewLeader2.LeaderPath = append(ou.ElectNewLeader2.LeaderPath, ou.Addr)
-		ou.ElectNewLeader2.LeaderAddr = ou.Addr
-		ou.IsClusterHead = true
-		ou.ClusterHeadCount++
-		ou.ClusterHead = ou.Addr
-		//update leader
-		//forward
-	} else if ou.LeaderNumber == ou.ElectNewLeader2.Number {
-		fmt.Printf("(%s): Elect new leader number are equal..\n", ou.Addr)
-		//should we switch to a shorter path to leader?
-	} else {
-		fmt.Printf("(%s): This OU number (%f) < received number (%f)\n", ou.Addr, ou.LeaderNumber, ou.ElectNewLeader2.Number)
-		//update leader
-		//forward
+func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
+	fmt.Printf("\n(%s): LEADER ELECTION!!\n", ou.Addr)
+
+	//No leader
+	if ou.ClusterHead == "" {
+		fmt.Printf("(%s): Have no leader\n", ou.Addr)
+
+		ou.updateLeader(recLeaderData)
+		go ou.gossipLeader()
+		ou.LeaderElection.First = false
+		return
 	}
-	go ou.gossipLeaderNumber()
+
+	//If the one sending out the leader election is the one we have here
+	if ou.LeaderElection.ID == recLeaderData.ID {
+		fmt.Printf("(%s): OU ID (%d) and received ID (%d) are similar.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
+		//If the random number generated is higher than we already registered
+		if ou.LeaderElection.Number > recLeaderData.Number {
+			fmt.Printf("(%s): ID similar:  This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.RandLeaderNumber, recLeaderData.Number)
+			//ou.updateLeader(recLeaderData)
+			ou.gossipLeader()
+		}
+
+		//Random numbers are equal
+		if ou.LeaderElection.Number == recLeaderData.Number {
+			fmt.Printf("(%s): ID similar: This OU rand-number (%f) is equal to received rand-number (%f)\n", ou.Addr, ou.RandLeaderNumber, recLeaderData.Number)
+			fmt.Printf("(%s): Don't do anyting except updating to shorter path to leader if possible..", ou.Addr)
+			//should we switch to a shorter path to leader?
+			if len(ou.PathToCh) > len(recLeaderData.LeaderPath) {
+				fmt.Printf("(%s): Updating to shorter path to leader", ou.Addr)
+				ou.updateLeader(recLeaderData)
+			}
+
+			if ou.LeaderElection.First == true {
+				ou.gossipLeader()
+			}
+
+		}
+	} else {
+		//Different leader
+		fmt.Printf("(%s): Different leader\n", ou.Addr)
+
+		//Received rand-num is higher than the one we have.. Update leader..
+		if recLeaderData.Number > ou.LeaderElection.Number {
+			fmt.Printf("(%s): Received rand-num (%f) is greater than what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			ou.updateLeader(recLeaderData)
+			ou.gossipLeader()
+		} else if recLeaderData.Number == ou.LeaderElection.Number {
+			fmt.Printf("(%s): Received rand-num (%f) is equal to what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			//Same random number, but different leader
+			//Check if shorter path
+			if len(ou.PathToCh) > len(recLeaderData.LeaderPath) {
+				fmt.Printf("(%s): Received path to leader is shorter than what we have. Update leader\n", ou.Addr)
+				ou.updateLeader(recLeaderData)
+			} else {
+				fmt.Printf("(%s): Received path to leader is longer than what we have. Don't update leader.\n", ou.Addr)
+				//Longer or equal path to CH so don't do anything..
+			}
+		} else {
+			//Different leader, lower rand-number..
+			fmt.Printf("(%s): Received rand-num (%f) is lower than what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			//insert self to path..
+			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+			}
+			ou.gossipLeader()
+		}
+
+	}
+}
+
+func (ou *ObservationUnit) updateLeader(recLeaderData LeaderElection) {
+	fmt.Printf("(%s): Update Leader information\n", ou.Addr)
+	ou.ClusterHead = recLeaderData.LeaderAddr
+	//Switch to shortest path to CH
+	if !listContains(ou.PathToCh, recLeaderData.LeaderAddr) {
+		ou.PathToCh = recLeaderData.LeaderPath
+	}
+	ou.LeaderElection = recLeaderData
+	fmt.Printf("(%s): Leader information looks like this now: %+v\n", ou.Addr, ou.LeaderElection)
+
 }
 
 /*Chose if node is the biggest and become chief..*/
@@ -833,13 +897,12 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 }
 
 func (ou *ObservationUnit) clusterHeadCalculation() {
-	ou.LeaderNumber = randomFloat()
-	ou.ElectNewLeader2.Number = ou.LeaderNumber
-	ou.ElectNewLeader2.LeaderPath = append(ou.ElectNewLeader2.LeaderPath, ou.Addr)
-	ou.ElectNewLeader2.LeaderAddr = ou.Addr
-	fmt.Printf("(%s): Random number for leader is: %f\n", ou.Addr, ou.LeaderNumber)
-	time.Sleep(time.Second * 20)
-	go ou.gossipLeaderNumber()
+	ou.RandLeaderNumber = randomFloat()
+	ou.LeaderElection.Number = ou.RandLeaderNumber
+	ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+	ou.LeaderElection.LeaderAddr = ou.Addr
+	fmt.Printf("\n(%s): Leader election is : %+v\n", ou.Addr, ou.LeaderElection)
+	go ou.leaderElection(ou.LeaderElection)
 
 	/*var pkt CHpkt
 
