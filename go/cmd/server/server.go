@@ -759,7 +759,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		ou.LeaderElection.ID = ou.ID
 		ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 
-		fmt.Printf("\n-----\n(%s): OU-leaderelection is: %+v\n-----\n", ou.Addr, ou.LeaderElection)
+		fmt.Printf("\n\n----------\n(%s): OU-LEADERELECTION IS: %+v\n----------\n", ou.Addr, ou.LeaderElection)
 
 		//ou.updateLeader(recLeaderData)
 		go ou.gossipLeader()
@@ -806,6 +806,11 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			//Update randnum, id, addr, path!!!
 			fmt.Printf("(%s): Received rand-num (%f) is greater than what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			ou.LeaderElection = recLeaderData
+			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+				fmt.Printf("(%s): Added self to leaderpath..\n", ou.Addr)
+			}
+
 			fmt.Printf("(%s): Updated leader election with data from rec-election\n", ou.Addr)
 			//ou.updateLeader(recLeaderData)
 			ou.gossipLeader()
@@ -813,7 +818,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			fmt.Printf("(%s): Received rand-num (%f) is equal to what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			//Same random number, but different leader
 			//Check if shorter path
-			if len(ou.PathToCh) > len(recLeaderData.LeaderPath) {
+			if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 				//Update id, addr, path!!!
 				fmt.Printf("(%s): Received path to leader is shorter than what we have. Update leader\n", ou.Addr)
 				ou.LeaderElection.ID = recLeaderData.ID
