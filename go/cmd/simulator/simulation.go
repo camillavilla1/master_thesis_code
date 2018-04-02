@@ -60,7 +60,7 @@ func main() {
 	http.HandleFunc("/notifySimulation", reachableOuHandler)
 	http.HandleFunc("/removeReachableOu", removeReachableOuHandler)
 
-	log.Printf("Started simulation on %s%s\n", hostname, ouPort)
+	log.Printf("\nStarted simulation on %s%s\n", hostname, ouPort)
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -97,7 +97,7 @@ func removeReachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("Number of nodes running: ", numNodesRunning)
-	fmt.Printf("Running nodes are: %v\n", runningNodes)
+	//fmt.Printf("Running nodes are: %v\n", runningNodes)
 
 	io.Copy(ioutil.Discard, r.Body)
 	r.Body.Close()
@@ -137,14 +137,14 @@ func getClusterheadPercentage(ou ObservationUnit) {
 
 	//fmt.Printf("\n### Tell OU percentage of Cluster Heads.. ###\n")
 	url := fmt.Sprintf("http://%s/clusterheadPercentage", ou.Addr)
-	fmt.Printf("SendingCH percentage to url: %s ", url)
+	//fmt.Printf("SendingCH percentage to url: %s ", url)
 
 	b, err := json.Marshal(ou.CHpercentage)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf(" with data: %s.\n", string(b))
+	//fmt.Printf(" with data: %s.\n", string(b))
 
 	addressBody := strings.NewReader(string(b))
 
@@ -156,7 +156,7 @@ func getClusterheadPercentage(ou ObservationUnit) {
 
 /*Find nearest neighbour(s) that OUnode can contact.*/
 func findNearestneighbours(ou ObservationUnit) {
-	fmt.Printf("\n### Find Nearest Neighbours!!###\n")
+	//fmt.Printf("\n### Find Nearest Neighbours!!###\n")
 	for _, startedOu := range runningOus {
 		//fmt.Printf("Running OU are: %+v\n", runningOus)
 		if !(ou.ID == startedOu.ID) {
@@ -175,7 +175,7 @@ func findNearestneighbours(ou ObservationUnit) {
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutReachableNeighbour(ou)
 	} else {
-		fmt.Printf("OU have no neighbours..\n")
+		//fmt.Printf("OU have no neighbours..\n")
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuNoReachableNeighbours(ou)
 	}
