@@ -167,6 +167,7 @@ func startServer() {
 	http.HandleFunc("/gossipLeader", ou.gossipLeaderHandler)
 
 	//go ou.checkBatteryStatus()
+	go ou.calculateThreshold()
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go ou.clusterHeadCalculation()
@@ -763,6 +764,12 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 
 func (ou *ObservationUnit) calculateThreshold() {
 	//have battery, bw, #sends(?) #communication with neighbours.., #neighbours, len(path to leader), Leaderpercentage
+	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.Bandwidth)
+	fmt.Printf("(%s): # neighbours: %d\n", ou.Addr, len(ou.ReachableNeighbours))
+	fmt.Printf("(%s): Length of leaderpath: %d\n", ou.Addr, len(ou.LeaderElection.LeaderPath))
+	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.BatteryTime)
+
+	time.Sleep(time.Second * 60)
 }
 
 func round(num float64) int {
