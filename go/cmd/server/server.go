@@ -243,7 +243,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 /*Receive a msg from leader about sending (accumulated) data to leader. */
 func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
+	//fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
 	var sData SensorData
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -254,12 +254,12 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	}
 
 	io.Copy(ioutil.Discard, r.Body)
-	r.Body.Close()
+	defer r.Body.Close()
 
-	fmt.Printf("\n(%s): Received get-data-msg from %s\n", ou.Addr, sData.Source)
+	//fmt.Printf("\n(%s): Received get-data-msg from %s\n", ou.Addr, sData.Source)
 
 	if sData.ID != ou.SensorData.ID {
-		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
+		//fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
 		ou.SensorData.ID = sData.ID
 
 		go ou.notifyNeighboursGetData(sData)
@@ -425,12 +425,12 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
 func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
-	fmt.Printf("\n(%s): Tell neighbours to send data to leader\n", ou.Addr)
+	//fmt.Printf("\n(%s): Tell neighbours to send data to leader\n", ou.Addr)
 	for _, addr := range ou.ReachableNeighbours {
 		if addr != sensorData.Source {
 			//if !listContains(sensorData.Path, addr) {
 			url := fmt.Sprintf("http://%s/notifyNeighboursGetData", addr)
-			fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
+			//fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
 
 			/*	if !listContains(sensorData.Path, ou.Addr) {
 				sensorData.Path = append(sensorData.Path, ou.Addr)
@@ -468,13 +468,13 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 
 	if lastElem == ou.Addr {
 		//removing last element
-		fmt.Printf("(%s): Remove last elem which is self\n", ou.Addr)
+		//fmt.Printf("(%s): Remove last elem which is self\n", ou.Addr)
 		ou.LeaderElection.LeaderPath = ou.LeaderElection.LeaderPath[:len(ou.LeaderElection.LeaderPath)-1]
 		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
 	}
 
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
-	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+	// fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
 	sensorData.Source = ou.Addr
 	sensorData.Destination = lastElem
@@ -668,7 +668,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			return
 		}
 	}
-	fmt.Printf("\n--------------------\n(%s): LEADERELECTION RESULT %+v\n--------------------\n", ou.Addr, ou.LeaderElection)
+	//fmt.Printf("\n--------------------\n(%s): LEADERELECTION RESULT %+v\n--------------------\n", ou.Addr, ou.LeaderElection)
 }
 
 /*Chose if node is the biggest and become chief..*/
@@ -697,11 +697,14 @@ func (ou *ObservationUnit) biggestID() bool {
 }
 
 func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
+	var lock sync.RWMutex
 	fmt.Printf("\n(%s): Accumulate data with data from %s\n", ou.Addr, sData.Source)
 	//log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
 	//fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
+	lock.Lock()
+	defer lock.Unlock()
 	ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
-	fmt.Printf("\n(%s): Sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
+	//fmt.Printf("\n(%s): Sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
 
 	go ou.sendDataToLeader(ou.SensorData)
 	//ou.SensorData.Data = append(ou.SensorData.Data, i)
@@ -798,8 +801,9 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 150) + 5
+	//num := (rand.Float64() * 150) + 5
 	//num := (rand.Float64() * 50) + 5
+	num := (rand.Float64() * 400) + 5
 	return num
 }
 
