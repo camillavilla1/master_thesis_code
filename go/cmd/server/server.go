@@ -312,6 +312,7 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 			}
 		}
 		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, ou.BSdatamap)
+		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
 		go ou.accumulateSensorData(sData)
