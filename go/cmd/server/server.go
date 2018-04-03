@@ -60,6 +60,7 @@ type SensorData struct {
 	Data        []byte
 	Source      string
 	Destination string
+	Accumulated bool
 }
 
 /*DataBaseStation is data sent to/gathered from the BS*/
@@ -131,7 +132,8 @@ func startServer() {
 			Fingerprint: 0,
 			Data:        []byte{},
 			Source:      "",
-			Destination: ""},
+			Destination: "",
+			Accumulated: false},
 		DataBaseStation: DataBaseStation{
 			BSdatamap: make(map[uint32][]byte)},
 		LeaderElection: LeaderElection{
@@ -481,6 +483,7 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	sensorData.Destination = lastElem
 	sensorData.Fingerprint = hashByte(ou.SensorData.Data)
 	sensorData.Data = ou.SensorData.Data
+	//sensorData.Accumulated = true
 
 	//fmt.Printf("\n(%s): sending: %+v\n", ou.Addr, sensorData)
 
