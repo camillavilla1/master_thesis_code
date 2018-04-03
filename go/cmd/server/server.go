@@ -752,8 +752,7 @@ func (ou *ObservationUnit) getData() {
 		select {
 		case <-tickChan:
 			if ou.LeaderElection.LeaderAddr == ou.Addr {
-				//if ou.IsClusterHead == true {
-				fmt.Printf("\n(%s): IS CLUSTER HEAD.. SHOULD ASK FOR DATA\n", ou.Addr)
+				fmt.Printf("\n(%s): IS LEADER.. SHOULD ASK FOR DATA\n", ou.Addr)
 				num++
 				ou.SensorData.ID = ou.ID + num
 				tmp := ou.SensorData.Data
