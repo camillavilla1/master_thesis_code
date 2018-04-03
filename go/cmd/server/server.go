@@ -43,17 +43,14 @@ type ObservationUnit struct {
 	BatteryTime         int64    `json:"-"`
 	Xcor                float64  `json:"Xcor"`
 	Ycor                float64  `json:"Ycor"`
-	Sends               int
-	//ClusterHead         string   `json:"-"`
-	//IsClusterHead       bool     `json:"-"`
-	ClusterHeadCount int `json:"-"`
-	Bandwidth        int `json:"-"`
-	//PathToCh         []string `json:"-"`
-	CHpercentage    float64 `json:"-"`
-	SensorData      `json:"-"`
-	DataBaseStation `json:"-"`
-	//ElectNewLeader  `json:"-"`
-	LeaderElection `json:"-"`
+	Sends               int      `json:"-"`
+	SendsToLeader       int      `json:"-"`
+	ClusterHeadCount    int      `json:"-"`
+	Bandwidth           int      `json:"-"`
+	CHpercentage        float64  `json:"-"`
+	SensorData          `json:"-"`
+	DataBaseStation     `json:"-"`
+	LeaderElection      `json:"-"`
 }
 
 /*SensorData is data from "sensors" on the OU*/
@@ -69,12 +66,6 @@ type SensorData struct {
 type DataBaseStation struct {
 	BSdatamap map[uint32][]byte
 }
-
-/*ElectNewLeader contains info about new leader election*/
-/*type ElectNewLeader struct {
-	Source string
-	ID     uint32
-}*/
 
 /*LeaderElection contains info about new leader election*/
 type LeaderElection struct {
@@ -131,12 +122,10 @@ func startServer() {
 		Xcor:                estimateLocation(),
 		Ycor:                estimateLocation(),
 		Sends:               0,
-		//ClusterHead:         "",
-		//IsClusterHead:       false,
-		ClusterHeadCount: 0,
-		Bandwidth:        bandwidth(),
-		//PathToCh:         []string{},
-		CHpercentage: 0,
+		SendsToLeader:       0,
+		ClusterHeadCount:    0,
+		Bandwidth:           bandwidth(),
+		CHpercentage:        0,
 		SensorData: SensorData{
 			ID:          0,
 			Fingerprint: 0,
@@ -145,9 +134,6 @@ func startServer() {
 			Destination: ""},
 		DataBaseStation: DataBaseStation{
 			BSdatamap: make(map[uint32][]byte)},
-		/*ElectNewLeader: ElectNewLeader{
-		Source: "",
-		ID:     0},*/
 		LeaderElection: LeaderElection{
 			ID:         hashAddress(hostaddress),
 			Number:     0.0,
@@ -167,10 +153,11 @@ func startServer() {
 	http.HandleFunc("/gossipLeader", ou.gossipLeaderHandler)
 
 	//go ou.checkBatteryStatus()
-	//go ou.calculateThreshold()
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go ou.clusterHeadCalculation()
+	//go ou.calculateLeaderThreshold()
+
 	go ou.measureSensorData()
 	go ou.getData()
 
@@ -230,7 +217,8 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 	defer r.Body.Close()
 
 	//go ou.clusterHeadCalculation()
-	go ou.leaderElection(ou.LeaderElection)
+	//go ou.calculateLeaderThreshold()
+	//go ou.leaderElection(ou.LeaderElection)
 }
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
@@ -253,7 +241,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	go ou.tellContactingOuOk(newNeighbour)
 }
 
-/*Receive a msg from CH about sending (accumulated) data to CH. */
+/*Receive a msg from leader about sending (accumulated) data to leader. */
 func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
 	var sData SensorData
@@ -276,28 +264,14 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 
 		go ou.notifyNeighboursGetData(sData)
 
-		//if ch is neighbour, no need for accumulate data..
-		/*if len(ou.PathToCh) <= 1 {
-			if ou.PathToCh[0] == ou.ClusterHead {
-				fmt.Printf("\n(%s) Send data to CH \n", ou.Addr)
-				go ou.sendDataToLeader(sData)
-			}
-		} else {
-			//fmt.Printf("\n(%s) Accumulate data and send to CH (through path)\n", ou.Addr)
-			//Need to accumulate data with neighbours
-			go ou.accumulateSensorData(sData)
-			//go ou.sendDataToLeader(sData)
-		}*/
-
 		if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
 			go ou.sendDataToLeader(sData)
 		} else {
-			//fmt.Printf("\n(%s) Accumulate data and send to CH (through path)\n", ou.Addr)
+			//fmt.Printf("\n(%s) Accumulate data and send to leader (through path)\n", ou.Addr)
 			//Need to accumulate data with neighbours
 			go ou.accumulateSensorData(sData)
 			//go ou.sendDataToLeader(sData)
 		}
-
 	} /*else {
 		fmt.Printf("(%s): Data id and sensordata id similar..\n", ou.Addr)
 	}*/
@@ -318,7 +292,6 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
-		//if ou.IsClusterHead == true {
 		if len(ou.BSdatamap) == 0 {
 			//lock.Lock()
 			//defer lock.Unlock()
@@ -340,12 +313,12 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 		}
 		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, ou.BSdatamap)
 	} else {
-		//fmt.Printf("\n(%s): is not CH. Accumulate data and send to CH..\n", ou.Addr)
+		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
 		go ou.accumulateSensorData(sData)
 	}
 }
 
-/*Receive ok from CH that new OU can join.*/
+/*Receive OK that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
 	var newNeighbour string
 
@@ -379,8 +352,6 @@ func (ou *ObservationUnit) gossipLeaderHandler(w http.ResponseWriter, r *http.Re
 	defer r.Body.Close()
 
 	//fmt.Printf("(%s): Gossip Leader Handler received: %+v\n\n", ou.Addr, recLeaderData)
-
-	//ou.LeaderElection.Number = recLeaderData.Number
 
 	time.Sleep(time.Second * 2)
 	go ou.leaderElection(recLeaderData)
@@ -421,7 +392,7 @@ func (ou *ObservationUnit) tellContactingOuOk(newNeighbour string) {
 	}
 
 	addressBody := strings.NewReader(string(b))
-
+	ou.Sends++
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Error posting to neighbour about connection ok: ", err)
 }
@@ -435,7 +406,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 		//fmt.Printf("\nContacting neighbour url: %s ", url)
 
 		addressBody := strings.NewReader(ou.Addr)
-
+		ou.Sends++
 		_, err := http.Post(url, "string", addressBody)
 		if err != nil {
 			fmt.Printf("(%s) Try to post broadcast %s\n", ou.Addr, err)
@@ -443,8 +414,10 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 		}
 	}
 
+	//go ou.calculateLeaderThreshold()
+
 	if i == len(ou.ReachableNeighbours) {
-		time.Sleep(4 * time.Second)
+		time.Sleep(10 * time.Second)
 		//go ou.clusterHeadCalculation()
 		go ou.leaderElection(ou.LeaderElection)
 	}
@@ -476,7 +449,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 
 			addressBody := strings.NewReader(string(b))
 			//fmt.Println("\nAddressbody: ", addressBody)
-
+			ou.Sends++
 			_, err = http.Post(url, "string", addressBody)
 			//errorMsg("Error posting to neighbour ", err)
 			if err != nil {
@@ -500,15 +473,8 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
 	}
 
-	//fmt.Printf("\n(%s): Send data to last node in path: %s ..\n\n", ou.Addr, lastElem)
-	//removing last element
-	//newPath := ou.PathToCh[:len(ou.PathToCh)-1]
-	//fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
-
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
 	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
-
-	//sensorData.Source = ou.Addr
 
 	sensorData.Source = ou.Addr
 	sensorData.Destination = lastElem
@@ -526,6 +492,8 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	addressBody := strings.NewReader(string(b))
 	//fmt.Println("\nAddressbody: ", addressBody)
 
+	ou.Sends++
+	ou.SendsToLeader++
 	_, err = http.Post(url, "string", addressBody)
 	//errorMsg("Error posting to neighbour ", err)
 	if err != nil {
@@ -536,9 +504,6 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 
 /*Tell Simulation that node is up and running*/
 func (ou *ObservationUnit) tellSimulationUnit() {
-	//fmt.Printf("\nOU IS %s\n", ou.Addr)
-	//fmt.Println("Battery is ", ou.BatteryTime)
-
 	url := fmt.Sprintf("http://localhost:%s/notifySimulation", SimPort)
 	//fmt.Printf("(%s): Sending to url: %s.\n", ou.Addr, url)
 
@@ -549,7 +514,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 	}
 
 	addressBody := strings.NewReader(string(b))
-
+	ou.Sends++
 	res, err := http.Post(url, "bytes", addressBody)
 	errorMsg("POST request to Simulation failed: ", err)
 	io.Copy(os.Stdout, res.Body)
@@ -567,7 +532,7 @@ func (ou *ObservationUnit) tellSimulationUnitDead() {
 	}
 
 	addressBody := strings.NewReader(string(b))
-
+	ou.Sends++
 	_, err = http.Post(url, "string", addressBody)
 	errorMsg("Post request dead OU: ", err)
 }
@@ -584,7 +549,7 @@ func (ou *ObservationUnit) shutdownOu() {
 }
 
 func (ou *ObservationUnit) gossipLeader() {
-	//fmt.Printf("(%s): Gossip leader to neighbours if available..\n", ou.Addr)
+	//fmt.Printf("(%s): Gossip leader to neighbours if any..\n", ou.Addr)
 	//time.Sleep(time.Second * 2)
 	//fmt.Printf("(%s): Reachable Neighbours are: %+v\n", ou.Addr, ou.ReachableNeighbours)
 	for _, addr := range ou.ReachableNeighbours {
@@ -603,7 +568,7 @@ func (ou *ObservationUnit) gossipLeader() {
 
 		//fmt.Printf("(%s): Gossiping data: %+v\n\n", ou.Addr, ou.LeaderElection)
 		addressBody := strings.NewReader(string(b))
-
+		ou.Sends++
 		_, err = http.Post(url, "string", addressBody)
 		errorMsg("Post request broadcasting election of new leader failed: ", err)
 		//io.Copy(os.Stdout, res.Body)
@@ -617,7 +582,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 	if ou.LeaderElection.LeaderAddr == "" {
 		//fmt.Printf("(%s): Have no leader\n", ou.Addr)
 
-		//Update randnum, id ,addr, path!!
+		//Update (randnum), id ,addr, path!!
 		ou.LeaderElection.LeaderAddr = ou.Addr
 		ou.LeaderElection.ID = ou.ID
 		if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
@@ -638,7 +603,6 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		if ou.LeaderElection.Number > recLeaderData.Number {
 			//fmt.Printf("(%s): ID similar:  This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
 			//ou.updateLeader(recLeaderData)
-			//if len(ou.PathToCh) > len(recLeaderData.LeaderPath) {
 			if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 				//Update path!!
 				//fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
@@ -654,7 +618,6 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				//fmt.Printf("(%s): ID similar: This OU rand-number (%f) is equal to received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
 				//fmt.Printf("(%s): Don't do anyting except updating to shorter path to leader if possible..\n", ou.Addr)
 				//should we switch to a shorter path to leader?
-				//if len(ou.PathToCh) > len(recLeaderData.LeaderPath) {
 				if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 					//fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
 					ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
@@ -688,7 +651,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
 			} else {
-				//Longer or equal path to CH so don't do anything..
+				//Longer or equal path to leader so don't do anything..
 				//fmt.Printf("(%s): Received path to leader is longer than what we have. Don't update leader.\n", ou.Addr)
 			}
 		} else {
@@ -733,28 +696,7 @@ func (ou *ObservationUnit) biggestID() bool {
 	return false
 }
 
-/*func (ou ObservationUnit) broadcastLeaderPath(pkt CHpkt) {
-	tickChan := time.NewTicker(time.Second * 20).C
-
-	doneChan := make(chan bool)
-	go func() {
-		time.Sleep(time.Second * time.Duration(batteryStart))
-		doneChan <- true
-	}()
-
-	for {
-		select {
-		case <-tickChan:
-			go ou.broadcastNewLeader(pkt)
-
-		case <-doneChan:
-			return
-		}
-	}
-}*/
-
 func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
-
 	fmt.Printf("\n(%s): Accumulate data with data from %s\n", ou.Addr, sData.Source)
 	//log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
 	//fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
@@ -770,23 +712,22 @@ func (ou *ObservationUnit) clusterHeadCalculation() {
 	time.Sleep(time.Second * 1)
 }
 
-func (ou *ObservationUnit) calculateThreshold() {
+func (ou *ObservationUnit) calculateLeaderThreshold() {
+	time.Sleep(time.Second * 1)
 	//have battery, bw, #sends(?) #communication with neighbours.., #neighbours, len(path to leader), Leaderpercentage
 	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.Bandwidth)
 	fmt.Printf("(%s): # neighbours: %d\n", ou.Addr, len(ou.ReachableNeighbours))
 	fmt.Printf("(%s): Length of leaderpath: %d\n", ou.Addr, len(ou.LeaderElection.LeaderPath))
-	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.BatteryTime)
+	fmt.Printf("(%s): Batterytime: %d\n", ou.Addr, ou.BatteryTime)
+	fmt.Printf("(%s): # Sends: %d\n", ou.Addr, ou.Sends)
+	fmt.Printf("(%s): # Sends to leader: %d\n", ou.Addr, ou.SendsToLeader)
+
+	nodeCap := 100.0
+	res := (float64(len(ou.ReachableNeighbours)) / nodeCap)
+	res = toFixed(res, 3)
+	fmt.Printf("(%s): Result is: %f\n", ou.Addr, res)
 
 	time.Sleep(time.Second * 60)
-}
-
-func round(num float64) int {
-	return int(num + math.Copysign(0.5, num))
-}
-
-func toFixed(num float64, precision int) float64 {
-	output := math.Pow(10, float64(precision))
-	return float64(round(num*output)) / output
 }
 
 func (ou *ObservationUnit) getData() {
@@ -862,23 +803,6 @@ func estimateLocation() float64 {
 	return num
 }
 
-/*func (ou *ObservationUnit) batteryConsumption2() {
-
-	tmp := randomInt64(batteryStart)
-	fmt.Printf("(%s): Tmp battery is %d\n", ou.Addr, tmp)
-
-	if float64(tmp) < (float64(batteryStart) * 0.40) {
-		fmt.Printf("(%s): Not much battery left..\n", ou.Addr)
-		if ou.IsClusterHead == true {
-			ou.ElectNewLeader.ID = hashAddress(ou.Addr)
-			ou.ElectNewLeader.Source = ou.Addr
-			fmt.Printf("(%s): Is CH, broadcast to neighbours about electing a new leader..\n", ou.Addr)
-			go ou.broadcastElectNewLeader()
-		}
-
-	}
-}*/
-
 func (ou *ObservationUnit) checkBatteryStatus() {
 	for {
 		if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.20) {
@@ -888,10 +812,7 @@ func (ou *ObservationUnit) checkBatteryStatus() {
 	}
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
-		//if ou.IsClusterHead == true {
-		fmt.Printf("\n(%s): have low battery: %d.. Need to chose a new CH\n", ou.Addr, ou.BatteryTime)
-		//ou.ElectNewLeader.ID = hashAddress(ou.Addr)
-		//ou.ElectNewLeader.Source = ou.Addr
+		fmt.Printf("\n(%s): have low battery: %d.. Need to chose a new leader\n", ou.Addr, ou.BatteryTime)
 		//go ou.broadcastElectNewLeader()
 	}
 }
@@ -909,20 +830,11 @@ func (ou *ObservationUnit) batteryConsumption() {
 		select {
 		case <-tickChan:
 			if ou.LeaderElection.LeaderAddr == ou.Addr {
-				//if ou.IsClusterHead == true {
 				ou.BatteryTime -= (secondInterval * 2)
 			} else {
 				ou.BatteryTime -= secondInterval
 			}
-
-			/*fmt.Printf("(%s): batterytime: %d\n", ou.Addr, ou.BatteryTime)
-
-			if float64(ou.BatteryTime) <= (float64(batteryStart) * 0.50) {
-				fmt.Printf("\n(%s): have low battery.. Need to chose a new CH\n", ou.Addr)
-				ou.ElectNewLeader.ID = hashAddress(ou.Addr)
-				ou.ElectNewLeader.Source = ou.Addr
-				go ou.broadcastElectNewLeader()
-			}*/
+			/*fmt.Printf("(%s): batterytime: %d\n", ou.Addr, ou.BatteryTime)*/
 		case <-doneChan:
 			ou.BatteryTime = 0
 			fmt.Println("Done. OU is dead..")
@@ -933,12 +845,24 @@ func (ou *ObservationUnit) batteryConsumption() {
 }
 
 func setMaxProcs() int {
+	//GOMAXPROCS sets the maximum number of CPUs that can be executing simultaneously and returns the previous setting. If n < 1, it does not change the current setting. The number of logical CPUs on the local machine can be queried with NumCPU.
 	maxProcs := runtime.GOMAXPROCS(0)
+	//NumCPU returns the number of logical CPUs usable by the current process.
 	numCPU := runtime.NumCPU()
 	if maxProcs < numCPU {
 		return maxProcs
 	}
 	return numCPU
+}
+
+func round(num float64) int {
+	return int(num + math.Copysign(0.5, num))
+}
+
+/*Round float number to x decimals */
+func toFixed(num float64, precision int) float64 {
+	output := math.Pow(10, float64(precision))
+	return float64(round(num*output)) / output
 }
 
 func randomInt64(max int64) int64 {
@@ -997,13 +921,14 @@ func (ou *ObservationUnit) byteSensor() {
 }
 
 /*Return a random int describing which bandwidth-type for specific OU.
-Use this value to determine if OU can be CH*/
+Use this value to determine if OU can be leader*/
 func bandwidth() int {
 	bw := make(map[string]int)
 	bw["LoRa"] = 50
 	bw["Cable"] = 90
 	bw["Wifi"] = 30
 
+	rand.Seed(time.Now().UTC().UnixNano())
 	i := rand.Intn(len(bw))
 	var k string
 	for k = range bw {
