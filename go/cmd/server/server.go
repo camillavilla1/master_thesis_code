@@ -167,12 +167,12 @@ func startServer() {
 	http.HandleFunc("/gossipLeader", ou.gossipLeaderHandler)
 
 	//go ou.checkBatteryStatus()
-	go ou.calculateThreshold()
+	//go ou.calculateThreshold()
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	go ou.clusterHeadCalculation()
-	//go ou.measureSensorData()
-	//go ou.getData()
+	go ou.measureSensorData()
+	go ou.getData()
 
 	err := http.ListenAndServe(ouPort, nil)
 
@@ -255,7 +255,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 
 /*Receive a msg from CH about sending (accumulated) data to CH. */
 func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
+	fmt.Printf("\n\n------------------------------------------\n###(%s): NOTIFY NEIGHBOURS DATA HANDLER. ###\n------------------------------------------\n", ou.Addr)
 	var sData SensorData
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -271,7 +271,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	fmt.Printf("\n(%s): Received get-data-msg from %s\n", ou.Addr, sData.Source)
 
 	if sData.ID != ou.SensorData.ID {
-		//fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
+		fmt.Printf("\n(%s): Have not received this msg before. Need to forward msg to neighbours..\n", ou.Addr)
 		ou.SensorData.ID = sData.ID
 
 		go ou.notifyNeighboursGetData(sData)
@@ -290,7 +290,6 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 		}*/
 
 		if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
-			fmt.Printf("\n(%s) Send data to CH \n", ou.Addr)
 			go ou.sendDataToLeader(sData)
 		} else {
 			//fmt.Printf("\n(%s) Accumulate data and send to CH (through path)\n", ou.Addr)
@@ -366,7 +365,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (ou *ObservationUnit) gossipLeaderHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("\n(%s) Gossip leader handler!\n", ou.Addr)
+	//fmt.Printf("\n(%s) Gossip leader handler!\n", ou.Addr)
 	var recLeaderData LeaderElection
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -379,7 +378,7 @@ func (ou *ObservationUnit) gossipLeaderHandler(w http.ResponseWriter, r *http.Re
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	fmt.Printf("(%s): Gossip Leader Handler received: %+v\n\n", ou.Addr, recLeaderData)
+	//fmt.Printf("(%s): Gossip Leader Handler received: %+v\n\n", ou.Addr, recLeaderData)
 
 	//ou.LeaderElection.Number = recLeaderData.Number
 
@@ -453,8 +452,8 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 
 /*How to broadcast to neighbours with/without list of path... and how to receive??*/
 func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
-	for _, addr := range ou.Neighbours {
-
+	fmt.Printf("\n(%s): Tell neighbours to send data to leader\n", ou.Addr)
+	for _, addr := range ou.ReachableNeighbours {
 		if addr != sensorData.Source {
 			//if !listContains(sensorData.Path, addr) {
 			url := fmt.Sprintf("http://%s/notifyNeighboursGetData", addr)
@@ -493,7 +492,15 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	//lastElem := ou.PathToCh[len(ou.PathToCh)-1]
 	lastElem := ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
-	fmt.Printf("\n(%s): Send data to last node in path: %s ..\n\n", ou.Addr, lastElem)
+
+	if lastElem == ou.Addr {
+		//removing last element
+		fmt.Printf("(%s): Remove last elem which is self\n", ou.Addr)
+		ou.LeaderElection.LeaderPath = ou.LeaderElection.LeaderPath[:len(ou.LeaderElection.LeaderPath)-1]
+		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
+	}
+
+	//fmt.Printf("\n(%s): Send data to last node in path: %s ..\n\n", ou.Addr, lastElem)
 	//removing last element
 	//newPath := ou.PathToCh[:len(ou.PathToCh)-1]
 	//fmt.Printf("\n(%s): New path looks like: %s\n", ou.Addr, newPath)
@@ -604,7 +611,7 @@ func (ou *ObservationUnit) gossipLeader() {
 }
 
 func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
-	fmt.Printf("\n(%s): LEADER ELECTION!!\n", ou.Addr)
+	//fmt.Printf("\n(%s): LEADER ELECTION!!\n", ou.Addr)
 
 	//No leader
 	if ou.LeaderElection.LeaderAddr == "" {
@@ -752,7 +759,8 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	//log.Printf("(%s):sensordata was %+v -> APPENDING and now %+v", ou.Addr, ou.SensorData.Data, append(ou.SensorData.Data[:], sData.Data[:]...))
 	//fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
 	ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
-	//fmt.Printf("\n(%s) sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
+	fmt.Printf("\n(%s): Sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
+
 	go ou.sendDataToLeader(ou.SensorData)
 	//ou.SensorData.Data = append(ou.SensorData.Data, i)
 }
@@ -784,7 +792,7 @@ func toFixed(num float64, precision int) float64 {
 func (ou *ObservationUnit) getData() {
 	var num uint32
 	num = 0
-	tickChan := time.NewTicker(time.Second * 30).C
+	tickChan := time.NewTicker(time.Second * 60).C
 
 	doneChan := make(chan bool)
 	go func() {
