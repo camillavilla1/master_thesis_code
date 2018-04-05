@@ -707,7 +707,13 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	//fmt.Printf("\n(%s):sensordata was %+v", ou.Addr, ou.SensorData.Data)
 	lock.Lock()
 	defer lock.Unlock()
-	ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
+	if ou.SensorData.Accumulated == false {
+		fmt.Printf("(%s): Accumulated data is false..\n", ou.Addr)
+		ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
+		ou.SensorData.Accumulated = true
+	}
+	//ou.SensorData.Data = append(ou.SensorData.Data[:], sData.Data[:]...)
+	//ou.SensorData.Accumulated = true
 	//fmt.Printf("\n(%s): Sensordata is now %+v\n", ou.Addr, ou.SensorData.Data)
 
 	go ou.sendDataToLeader(ou.SensorData)
@@ -804,9 +810,9 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 150) + 5
+	num := (rand.Float64() * 130) + 5
 	//num := (rand.Float64() * 50) + 5
-	num := (rand.Float64() * 400) + 5
+	//num := (rand.Float64() * 400) + 5
 	return num
 }
 
@@ -924,6 +930,7 @@ func (ou *ObservationUnit) measureSensorData() {
 func (ou *ObservationUnit) byteSensor() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	ou.SensorData.Data = make([]byte, 4)
+	ou.SensorData.Accumulated = false
 	rand.Read(ou.SensorData.Data)
 }
 
