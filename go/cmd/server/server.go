@@ -52,6 +52,7 @@ type ObservationUnit struct {
 	SensorData          `json:"-"`
 	DataBaseStation     `json:"-"`
 	LeaderElection      `json:"-"`
+	LeaderCalculation   `json:"-"`
 }
 
 /*SensorData is data from "sensors" on the OU*/
@@ -76,6 +77,11 @@ type LeaderElection struct {
 	LeaderPath []string
 	LeaderAddr string
 	ViceLeader string
+}
+
+/*LeaderCalculation contains ID for new leader calculation*/
+type LeaderCalculation struct {
+	ID uint32
 }
 
 func main() {
@@ -144,7 +150,9 @@ func startServer() {
 			Number:     0.0,
 			LeaderPath: []string{},
 			LeaderAddr: "",
-			ViceLeader: ""}}
+			ViceLeader: ""},
+		LeaderCalculation: LeaderCalculation{
+			ID: 0}}
 
 	//func HandleFunc(pattern string, handler func(ResponseWriter, *Request))
 	http.HandleFunc("/", IndexHandler)
@@ -157,7 +165,7 @@ func startServer() {
 	http.HandleFunc("/notifyNeighboursGetData", ou.notifyNeighboursGetDataHandler)
 	http.HandleFunc("/sendDataToLeader", ou.sendDataToLeaderHandler)
 	http.HandleFunc("/gossipLeaderElection", ou.gossipLeaderElectionHandler)
-	http.HandleFunc("/gossipNewLeaderElection", ou.gossipNewLeaderElectionHandler)
+	http.HandleFunc("/gossipNewLeaderCalculation", ou.gossipNewLeaderCalculationHandler)
 
 	//go ou.checkBatteryStatus()
 	go ou.batteryConsumption()
@@ -286,14 +294,14 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	}*/
 }
 
-func (ou *ObservationUnit) gossipNewLeaderElectionHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("(%s): Receive a new leader election handler\n", ou.Addr)
-	var recData LeaderElection
+func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("(%s): Receive a new leader calculation handler\n", ou.Addr)
+	var recLeaderCalc LeaderCalculation
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
 
-	if err := json.Unmarshal(body, &recData); err != nil {
+	if err := json.Unmarshal(body, &recLeaderCalc); err != nil {
 		panic(err)
 	}
 
@@ -301,10 +309,16 @@ func (ou *ObservationUnit) gossipNewLeaderElectionHandler(w http.ResponseWriter,
 	defer r.Body.Close()
 
 	fmt.Printf("\n!!!!!!!!\n(%s): Random number is %f\n", ou.Addr, ou.LeaderElection.Number)
-	ou.LeaderElection.Number = randomFloat()
-	fmt.Printf("(%s): New random number is: %f\n!!!!!!!!!!!\n", ou.Addr, ou.LeaderElection.Number)
-	fmt.Printf("\n!!!!!\n(%s): This ou is: %+v. \nReceived data is: %+v\n!!!!\n", ou.Addr, ou.LeaderElection, recData)
-	go ou.leaderElection(recData)
+	if ou.LeaderCalculation.ID != recLeaderCalc.ID {
+		fmt.Printf("(%s): Not received this msg before.. LeadID %d is not equal recID %d \nUpdate rand-num and ID.\n", ou.Addr, ou.LeaderCalculation.ID, recLeaderCalc.ID)
+		ou.LeaderElection.Number = randomFloat()
+		ou.LeaderCalculation.ID = recLeaderCalc.ID
+		fmt.Printf("\n!!!!!!!!\n(%s): Random number is now %f\n", ou.Addr, ou.LeaderElection.Number)
+		go ou.gossipNewLeaderCalculation()
+	} else {
+		fmt.Printf("(%s): Received this msg before..\n", ou.Addr)
+		return
+	}
 }
 
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
@@ -454,27 +468,24 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 	}
 }
 
-func (ou *ObservationUnit) gossipNewLeaderElection() {
-	fmt.Printf("(%s): Gossip new leader election..\n", ou.Addr)
+func (ou *ObservationUnit) gossipNewLeaderCalculation() {
+	fmt.Printf("(%s): Gossip new leader calculation..\n", ou.Addr)
 	for _, addr := range ou.ReachableNeighbours {
-		url := fmt.Sprintf("http://%s/gossipNewLeaderElection", addr)
+		url := fmt.Sprintf("http://%s/gossipNewLeaderCalculation", addr)
 		fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
 
-		b, err := json.Marshal(ou.LeaderElection)
+		b, err := json.Marshal(ou.LeaderCalculation)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		//fmt.Printf("(%s): Sending this get-data msg: %+v\n\n", ou.Addr, ou.SensorData)
-
 		addressBody := strings.NewReader(string(b))
-		//fmt.Println("\nAddressbody: ", addressBody)
 		ou.Sends++
 		_, err = http.Post(url, "string", addressBody)
 		//errorMsg("Error posting to neighbour ", err)
 		if err != nil {
-			fmt.Printf("(%s): Try to post notify neighbours to elect new leader %s\n", ou.Addr, err)
+			fmt.Printf("(%s): Try to post notify neighbours to calculate new number %s\n", ou.Addr, err)
 			continue
 		}
 	}
@@ -521,17 +532,27 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	//lastElem := ou.PathToCh[len(ou.PathToCh)-1]
-	lastElem := ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
+	var lastElem string
+	fmt.Printf("\n\n(%s): Leaderpath is : %+v\n", ou.Addr, ou.LeaderElection.LeaderPath)
+
+	if len(ou.LeaderElection.LeaderPath) > 1 {
+		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
+	} else {
+		lastElem = ou.LeaderElection.LeaderPath[0]
+	}
+	fmt.Printf("(%s): Last element is: %s\n", ou.Addr, lastElem)
 
 	if lastElem == ou.Addr {
 		//removing last element
-		//fmt.Printf("(%s): Remove last elem which is self\n", ou.Addr)
+		fmt.Printf("(%s): Remove last elem which is self\n", ou.Addr)
 		ou.LeaderElection.LeaderPath = ou.LeaderElection.LeaderPath[:len(ou.LeaderElection.LeaderPath)-1]
 		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
 	}
 
+	fmt.Printf("(%s): Last elemnt is now: %s\n", ou.Addr, lastElem)
+
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
-	// fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
+	fmt.Printf("\n(%s): Contacting neighbour url: %s ", ou.Addr, url)
 
 	sensorData.Source = ou.Addr
 	sensorData.Destination = lastElem
@@ -681,6 +702,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				fmt.Printf("\nHEELLLLLOOOOOOOO\n(%s): ID similar: This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
 				ou.LeaderElection.LeaderPath = []string{}
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+				ou.LeaderElection.LeaderAddr = ou.Addr
 				//ou.LeaderElection = recLeaderData
 				/*if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 					//Update path!!
@@ -709,7 +731,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			}
 
 			//fmt.Printf("(%s): Updated leader election with data from rec-election\n", ou.Addr)
-			ou.gossipLeaderElection()
+			go ou.gossipLeaderElection()
 		} else if recLeaderData.Number == ou.LeaderElection.Number {
 			//fmt.Printf("(%s): Received rand-num (%f) is equal to what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			//Same random number, but different leader
@@ -734,7 +756,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				//fmt.Printf("(%s): Inserted self into (%+v)\n\n", ou.Addr, ou.LeaderElection.LeaderPath)
 			}
 
-			ou.gossipLeaderElection()
+			go ou.gossipLeaderElection()
 			return
 		}
 	}
@@ -812,7 +834,7 @@ func (ou *ObservationUnit) calculateLeaderThreshold() {
 func (ou *ObservationUnit) getData() {
 	var num uint32
 	num = 0
-	tickChan := time.NewTicker(time.Second * 30).C
+	tickChan := time.NewTicker(time.Second * 60).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -835,16 +857,17 @@ func (ou *ObservationUnit) getData() {
 				ou.AccCount++
 
 				if ou.AccCount == 2 {
-					//Accumulated data 10 times, elect a new leader..
+					//Accumulated data x times, elect a new leader..
 					fmt.Printf("\n----\n(%s): Leader sent get-data 2 times!!!\n----\n", ou.Addr)
-					time.Sleep(time.Second * 2)
 					fmt.Printf("\n!!!!!!!!!!!\n(%s): Old random number is: %f\n", ou.Addr, ou.LeaderElection.Number)
-					//go ou.clusterHeadCalculation()
 					ou.LeaderElection.Number = randomFloat()
 					fmt.Printf("(%s): New random number is: %f\n!!!!!!!!!!!\n", ou.Addr, ou.LeaderElection.Number)
-					go ou.gossipNewLeaderElection()
-					time.Sleep(time.Second * 50)
+					ou.LeaderCalculation.ID = hashAddress(ou.Addr)
+					go ou.gossipNewLeaderCalculation()
 					ou.AccCount = 0
+					time.Sleep(time.Second * 20)
+					//go ou.leaderElection(ou.LeaderElection)
+					go ou.gossipLeaderElection()
 
 				}
 			}
@@ -892,8 +915,8 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 150) + 5
-	//num := (rand.Float64() * 50) + 5
+	//num := (rand.Float64() * 150) + 5
+	num := (rand.Float64() * 50) + 5
 	//num := (rand.Float64() * 400) + 5
 	return num
 }
