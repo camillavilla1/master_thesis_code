@@ -856,7 +856,7 @@ func (ou *ObservationUnit) getData() {
 				ou.SensorData.Data = tmp
 				ou.AccCount++
 
-				if ou.AccCount == 2 {
+				if ou.AccCount == 10 {
 					//Accumulated data x times, elect a new leader..
 					fmt.Printf("\n----\n(%s): Leader sent get-data 2 times!!!\n----\n", ou.Addr)
 					fmt.Printf("\n!!!!!!!!!!!\n(%s): Old random number is: %f\n", ou.Addr, ou.LeaderElection.Number)
