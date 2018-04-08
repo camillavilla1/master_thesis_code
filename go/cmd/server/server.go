@@ -65,6 +65,12 @@ type SensorData struct {
 	Accumulated bool
 }
 
+/*DataBaseStation2 is data sent to/gathered from the BS*/
+var DataBaseStation2 struct {
+	sync.Mutex
+	BSdatamap2 map[uint32][]byte
+}
+
 /*DataBaseStation is data sent to/gathered from the BS*/
 type DataBaseStation struct {
 	BSdatamap map[uint32][]byte
@@ -118,6 +124,7 @@ func startServer() {
 	batteryStart = 1800
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
+	DataBaseStation2.BSdatamap2 = make(map[uint32][]byte)
 
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
@@ -324,7 +331,9 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
-	var lock sync.RWMutex
+	//var lock sync.RWMutex
+	DataBaseStation2.Lock()
+	defer DataBaseStation2.Unlock()
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
@@ -337,27 +346,30 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
-		if len(ou.BSdatamap) == 0 {
-			//fmt.Printf("(%s): Locked for writing to map..\n", ou.Addr)
-			lock.Lock()
-			defer lock.Unlock()
-			ou.BSdatamap[sData.Fingerprint] = sData.Data
+		if len(DataBaseStation2.BSdatamap2) == 0 {
+			//fmt.Printf("(%s): 1. Locked for writing to map..\n", ou.Addr)
+			//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+			//lock.Lock()
+			//defer lock.Unlock()
+			DataBaseStation2.BSdatamap2[sData.Fingerprint] = sData.Data
 			//fmt.Printf("(%s): [0] Added data to BSdatamap\n", ou.Addr)
 		} else {
-			for key := range ou.BSdatamap {
+			for key := range DataBaseStation2.BSdatamap2 {
 				//fmt.Println("key:", key, "value:", []byte(value))
 				if key == sData.Fingerprint {
 					//fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
 				} else if key != sData.Fingerprint {
-					lock.Lock()
-					defer lock.Unlock()
-					ou.BSdatamap[sData.Fingerprint] = sData.Data
+					//fmt.Printf("(%s): 2. Locked for writing to map..\n", ou.Addr)
+					//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+					//lock.Lock()
+					//defer lock.Unlock()
+					DataBaseStation2.BSdatamap2[sData.Fingerprint] = sData.Data
 					//fmt.Printf("(%s): [2]  Added data to BSdatamap\n\n", ou.Addr)
 				}
 			}
 		}
-		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, ou.BSdatamap)
+		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
@@ -710,9 +722,17 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 					//ou.updateLeader(recLeaderData)
 				} else if len(ou.LeaderElection.LeaderPath) == len(recLeaderData.LeaderPath) {
 					fmt.Printf("(%s): Path (%+v) is equal to (%+v)..\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
-					if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
-						fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, ou.LeaderElection.LeaderPath[0], recLeaderData.LeaderPath[0])
-
+					if recLeaderData.LeaderPath[0] == recLeaderData.LeaderAddr {
+						//if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
+						//fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, ou.LeaderElection.LeaderPath[0], recLeaderData.LeaderPath[0])
+						fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, recLeaderData.LeaderPath[0], recLeaderData.LeaderAddr)
+						//ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+						//hvis siste elem er self
+						if ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1] == ou.Addr {
+							fmt.Printf("(%s): Last element is self..\n", ou.Addr)
+						} else {
+							ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+						}
 					}
 				}
 			} else {
@@ -762,6 +782,13 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				ou.LeaderElection.ID = recLeaderData.ID
 				ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+				//append self
+				if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+					ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+				}
+
+				go ou.gossipLeaderElection()
+
 			} else {
 				//Longer or equal path to leader so don't do anything..
 				fmt.Printf("(%s): Received path to leader is longer than what we have. Don't update leader.\n", ou.Addr)
@@ -936,9 +963,9 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	num := (rand.Float64() * 100) + 5
+	//num := (rand.Float64() * 100) + 5
 	//num := (rand.Float64() * 50) + 5
-	//num := (rand.Float64() * 200) + 5
+	num := (rand.Float64() * 230) + 5
 	return num
 }
 
