@@ -176,9 +176,9 @@ func startServer() {
 
 	go ou.measureSensorData()
 
-	//if ou.LeaderElection.LeaderAddr == ou.Addr {
+	//remove go
 	go ou.getData()
-	//}
+
 	err := http.ListenAndServe(ouPort, nil)
 
 	if err != nil {
@@ -336,13 +336,11 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	lock.Lock()
-	defer lock.Unlock()
-
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
 		if len(ou.BSdatamap) == 0 {
 			//fmt.Printf("(%s): Locked for writing to map..\n", ou.Addr)
-
+			lock.Lock()
+			defer lock.Unlock()
 			ou.BSdatamap[sData.Fingerprint] = sData.Data
 			//fmt.Printf("(%s): [0] Added data to BSdatamap\n", ou.Addr)
 		} else {
@@ -352,6 +350,8 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 					//fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
 				} else if key != sData.Fingerprint {
+					lock.Lock()
+					defer lock.Unlock()
 					ou.BSdatamap[sData.Fingerprint] = sData.Data
 					//fmt.Printf("(%s): [2]  Added data to BSdatamap\n\n", ou.Addr)
 				}
@@ -683,7 +683,9 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				//fmt.Printf("(%s): Updated (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
 			} else if len(ou.LeaderElection.LeaderPath) == len(recLeaderData.LeaderPath) {
 				fmt.Printf("(%s): Path to leader: %+v is equal to: %+v\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
+				//if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderAddr {
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+				//}
 			}
 			//Update randnum!!!
 			//fmt.Printf("\n###################\n(%s): Update rand-num from %f to %f!!!\n###################\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
@@ -697,15 +699,30 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				fmt.Printf("(%s): Don't do anyting except updating to shorter path to leader if possible..\n", ou.Addr)
 				//should we switch to a shorter path to leader?
 				if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
+					if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
+						fmt.Printf("(%s): Updating (%+v) to shorter path to leader %+v\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
+						ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+					} else {
+						fmt.Printf("(%s): Paths leader[0] is not similar..\n", ou.Addr)
+					}
 					//fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-					ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+
 					//ou.updateLeader(recLeaderData)
+				} else if len(ou.LeaderElection.LeaderPath) == len(recLeaderData.LeaderPath) {
+					fmt.Printf("(%s): Path (%+v) is equal to (%+v)..\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
+					if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
+						fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, ou.LeaderElection.LeaderPath[0], recLeaderData.LeaderPath[0])
+
+					}
 				}
 			} else {
 				fmt.Printf("\n(%s): ID similar: This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
-				ou.LeaderElection.LeaderPath = []string{}
-				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
-				ou.LeaderElection.LeaderAddr = ou.Addr
+				if ou.Addr != ou.LeaderElection.LeaderAddr {
+					ou.LeaderElection.LeaderPath = []string{}
+					ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
+					ou.LeaderElection.LeaderAddr = ou.Addr
+				}
+
 				//ou.LeaderElection = recLeaderData
 				/*if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 					//Update path!!
@@ -831,7 +848,9 @@ func (ou *ObservationUnit) calculateLeaderThreshold() {
 
 func (ou *ObservationUnit) getData() {
 	var num uint32
+	var count uint32
 	num = 0
+	count = 0
 	tickChan := time.NewTicker(time.Second * 180).C
 
 	doneChan := make(chan bool)
@@ -863,6 +882,8 @@ func (ou *ObservationUnit) getData() {
 					ou.LeaderElection.Number = randomFloat()
 					fmt.Printf("(%s): New random number is: %f\n!!!!!!!!!!!\n", ou.Addr, ou.LeaderElection.Number)
 					ou.LeaderCalculation.ID = hashAddress(ou.Addr)
+					count++
+					ou.LeaderCalculation.ID = ou.LeaderCalculation.ID + count
 					ou.AccCount = 0
 					go ou.gossipNewLeaderCalculation()
 					time.Sleep(time.Second * 60)
@@ -915,8 +936,8 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 150) + 5
-	num := (rand.Float64() * 50) + 5
+	num := (rand.Float64() * 100) + 5
+	//num := (rand.Float64() * 50) + 5
 	//num := (rand.Float64() * 200) + 5
 	return num
 }
