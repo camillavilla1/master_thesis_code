@@ -78,11 +78,13 @@ type DataBaseStation struct {
 
 /*LeaderElection contains info about new leader election*/
 type LeaderElection struct {
-	ID         uint32
-	Number     float64
-	LeaderPath []string
-	LeaderAddr string
-	ViceLeader string
+	ID            uint32
+	Number        float64
+	LeaderPath    []string
+	LeaderAddr    string
+	ViceLeader    string
+	TmpLeaderPath []string
+	TmpLeaderAddr string
 }
 
 /*LeaderCalculation contains ID for new leader calculation*/
@@ -153,11 +155,13 @@ func startServer() {
 		DataBaseStation: DataBaseStation{
 			BSdatamap: make(map[uint32][]byte)},
 		LeaderElection: LeaderElection{
-			ID:         hashAddress(hostaddress),
-			Number:     0.0,
-			LeaderPath: []string{},
-			LeaderAddr: "",
-			ViceLeader: ""},
+			ID:            hashAddress(hostaddress),
+			Number:        0.0,
+			LeaderPath:    []string{},
+			LeaderAddr:    "",
+			ViceLeader:    "",
+			TmpLeaderPath: []string{},
+			TmpLeaderAddr: ""},
 		LeaderCalculation: LeaderCalculation{
 			ID: 0}}
 
@@ -316,15 +320,20 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	fmt.Printf("\n!!!!!!!!\n(%s): Random number is %f\n", ou.Addr, ou.LeaderElection.Number)
+	//fmt.Printf("\n!!!!!!!!\n(%s): Random number is %f\n", ou.Addr, ou.LeaderElection.Number)
 	if ou.LeaderCalculation.ID != recLeaderCalc.ID {
-		fmt.Printf("(%s): Not received this msg before.. LeadID %d is not equal recID %d \nUpdate rand-num and ID.\n", ou.Addr, ou.LeaderCalculation.ID, recLeaderCalc.ID)
+		//fmt.Printf("(%s): Not received this msg before.. LeadID %d is not equal recID %d \nUpdate rand-num and ID.\n", ou.Addr, ou.LeaderCalculation.ID, recLeaderCalc.ID)
 		ou.LeaderElection.Number = randomFloat()
 		ou.LeaderCalculation.ID = recLeaderCalc.ID
-		fmt.Printf("\n!!!!!!!!\n(%s): Random number is now %f\n", ou.Addr, ou.LeaderElection.Number)
+		ou.LeaderElection.TmpLeaderPath = ou.LeaderElection.LeaderPath
+		ou.LeaderElection.LeaderPath = []string{}
+		ou.LeaderElection.TmpLeaderAddr = ou.LeaderElection.LeaderAddr
+		ou.LeaderElection.LeaderAddr = ""
+
+		fmt.Printf("\n!!!!!!!!\n(%s): Random number updated is: %f\n", ou.Addr, ou.LeaderElection.Number)
 		go ou.gossipNewLeaderCalculation()
 	} else {
-		fmt.Printf("(%s): Received this msg before..\n", ou.Addr)
+		//fmt.Printf("(%s): Received this msg before..\n", ou.Addr)
 		return
 	}
 }
@@ -541,7 +550,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	//lastElem := ou.PathToCh[len(ou.PathToCh)-1]
 	var lastElem string
-	fmt.Printf("\n\n(%s): Leaderpath is : %+v\n", ou.Addr, ou.LeaderElection.LeaderPath)
+	//fmt.Printf("\n\n(%s): Leaderpath is : %+v\n", ou.Addr, ou.LeaderElection.LeaderPath)
 
 	if len(ou.LeaderElection.LeaderPath) > 1 {
 		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
@@ -555,12 +564,12 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 		lastElem = ou.LeaderElection.LeaderPath[0]
 
 		if lastElem == ou.Addr {
-			fmt.Printf("(%s): Last element is ou-addr..\n", ou.Addr)
+			//fmt.Printf("(%s): Last element is ou-addr..\n", ou.Addr)
 			return
 		}
 	}
 
-	fmt.Printf("(%s): Last element is: %s\n", ou.Addr, lastElem)
+	//fmt.Printf("(%s): Last element is: %s\n", ou.Addr, lastElem)
 
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
 	fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
@@ -680,24 +689,20 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		go ou.gossipLeaderElection()
 		return
 	}
-	fmt.Printf("(%s): Received data is: %+v\n\n", ou.Addr, recLeaderData)
+	//fmt.Printf("(%s): Received data is: %+v\n\n", ou.Addr, recLeaderData)
 	//If the one sending out the leader election is the one we have here
 	if ou.LeaderElection.ID == recLeaderData.ID {
-		fmt.Printf("(%s): OU ID (%d) and received ID (%d) are similar.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
+		//fmt.Printf("(%s): OU ID (%d) and received ID (%d) are similar.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
 		//If the random number generated is higher than we already registered
 		if ou.LeaderElection.Number < recLeaderData.Number {
-			fmt.Printf("(%s): ID similar:  This OU rand-number (%f) is not greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
+			//fmt.Printf("(%s): ID similar: This OU rand-number (%f) is not greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
 			//ou.updateLeader(recLeaderData)
-			if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
-				//Update path!
-				fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-				//fmt.Printf("(%s): Updated (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-			} else if len(ou.LeaderElection.LeaderPath) == len(recLeaderData.LeaderPath) {
-				fmt.Printf("(%s): Path to leader: %+v is equal to: %+v\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
-				//if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderAddr {
-				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-				//}
+			//if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
+			//Update path!
+			//	fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
+			ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
+			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 			}
 			//Update randnum!!!
 			//fmt.Printf("\n###################\n(%s): Update rand-num from %f to %f!!!\n###################\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
@@ -707,63 +712,26 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		} else {
 			//Random numbers are equal
 			if ou.LeaderElection.Number == recLeaderData.Number {
-				fmt.Printf("(%s): ID similar: This OU rand-number (%f) is equal to received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
-				fmt.Printf("(%s): Don't do anyting except updating to shorter path to leader if possible..\n", ou.Addr)
+				//fmt.Printf("(%s): ID similar: This OU rand-number (%f) is equal to received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
+				//fmt.Printf("(%s): Don't do anyting except updating to shorter path to leader if possible..\n", ou.Addr)
 				//should we switch to a shorter path to leader?
 				if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
-					if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
-						fmt.Printf("(%s): Updating (%+v) to shorter path to leader %+v\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
-						ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-					} else {
-						fmt.Printf("(%s): Paths leader[0] is not similar..\n", ou.Addr)
-					}
-					//fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-
-					//ou.updateLeader(recLeaderData)
-				} else if len(ou.LeaderElection.LeaderPath) == len(recLeaderData.LeaderPath) {
-					fmt.Printf("(%s): Path (%+v) is equal to (%+v)..\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
-					if recLeaderData.LeaderPath[0] == recLeaderData.LeaderAddr {
-						//if ou.LeaderElection.LeaderPath[0] == recLeaderData.LeaderPath[0] {
-						//fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, ou.LeaderElection.LeaderPath[0], recLeaderData.LeaderPath[0])
-						fmt.Printf("(%s): EQUAL[0] %s and %s..\n", ou.Addr, recLeaderData.LeaderPath[0], recLeaderData.LeaderAddr)
-						//ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-						//hvis siste elem er self
-						if ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1] == ou.Addr {
-							fmt.Printf("(%s): Last element is self..\n", ou.Addr)
-						} else {
-							ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-						}
-					}
+					//fmt.Printf("(%s): Updating (%+v) to shorter path to leader %+v\n", ou.Addr, ou.LeaderElection.LeaderPath, recLeaderData.LeaderPath)
+					ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
 				}
 			} else {
-				fmt.Printf("\n(%s): ID similar: This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
-				if ou.Addr != ou.LeaderElection.LeaderAddr {
-					ou.LeaderElection.LeaderPath = []string{}
-					ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
-					ou.LeaderElection.LeaderAddr = ou.Addr
-				}
-
-				//ou.LeaderElection = recLeaderData
-				/*if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
-					//Update path!!
-					//fmt.Printf("(%s): Updating (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-					ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-					//fmt.Printf("(%s): Updated (%+v) to shorter path to leader\n", ou.Addr, ou.LeaderElection.LeaderPath)
-				}*/
-				/*if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
-					ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
-				}*/
-				//fmt.Printf("(%s):NEW LEADERELECTION IS: %+v \n\n\n", ou.Addr, ou.LeaderElection)
+				//fmt.Printf("\n(%s): ID similar: This OU rand-number (%f) is greater than received rand-number (%f)\n", ou.Addr, ou.LeaderElection.Number, recLeaderData.Number)
+				//fmt.Printf("(%s): LEADERELECTION IS: %+v \n\n\n", ou.Addr, ou.LeaderElection)
 				go ou.gossipLeaderElection()
 			}
 		}
 	} else {
-		//Different leader
-		fmt.Printf("(%s): OU ID (%d) and received ID (%d) are NOT similar. DIFFERENT LEADER.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
+		//Different msg
+		//fmt.Printf("(%s): OU ID (%d) and received ID (%d) are NOT similar. DIFFERENT LEADER.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
 		//Received rand-num is higher than the one we have.. Update leader..
 		if recLeaderData.Number > ou.LeaderElection.Number {
 			//Update randnum, id, addr, path!!!
-			fmt.Printf("(%s): Received rand-num (%f) is greater than what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			//fmt.Printf("(%s): Received rand-num (%f) is greater than what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			ou.LeaderElection = recLeaderData
 			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
@@ -773,12 +741,12 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			//fmt.Printf("(%s): Updated leader election with data from rec-election\n", ou.Addr)
 			go ou.gossipLeaderElection()
 		} else if recLeaderData.Number == ou.LeaderElection.Number {
-			fmt.Printf("(%s): Received rand-num (%f) is equal to what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			//fmt.Printf("(%s): Received rand-num (%f) is equal to what we have (%f)\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			//Same random number, but different leader
 			//Check if shorter path
 			if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
 				//Update id, addr, path!!!
-				fmt.Printf("(%s): Received path to leader is shorter than what we have. Update leader\n", ou.Addr)
+				//fmt.Printf("(%s): Received path to leader is shorter than what we have. Update leader\n", ou.Addr)
 				ou.LeaderElection.ID = recLeaderData.ID
 				ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
@@ -791,11 +759,11 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 
 			} else {
 				//Longer or equal path to leader so don't do anything..
-				fmt.Printf("(%s): Received path to leader is longer than what we have. Don't update leader.\n", ou.Addr)
+				//fmt.Printf("(%s): Received path to leader is longer than what we have. Don't update leader.\n", ou.Addr)
 			}
 		} else {
 			//Different leader, lower rand-number..
-			fmt.Printf("(%s): Received rand-num (%f) is lower than what we have (%f). Don't update LeaderElection..\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
+			//fmt.Printf("(%s): Received rand-num (%f) is lower than what we have (%f). Don't update LeaderElection..\n", ou.Addr, recLeaderData.Number, ou.LeaderElection.Number)
 			//insert self to path..
 			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				//fmt.Printf("(%s): Insert self into (%+v)\n", ou.Addr, ou.LeaderElection.LeaderPath)
@@ -912,6 +880,11 @@ func (ou *ObservationUnit) getData() {
 					count++
 					ou.LeaderCalculation.ID = ou.LeaderCalculation.ID + count
 					ou.AccCount = 0
+					/*ou.LeaderElection.TmpLeaderPath = ou.LeaderElection.LeaderPath
+					ou.LeaderElection.LeaderPath = []string{}
+					ou.LeaderElection.TmpLeaderAddr = ou.LeaderElection.LeaderAddr
+					ou.LeaderElection.LeaderAddr = ""
+					*/
 					go ou.gossipNewLeaderCalculation()
 					time.Sleep(time.Second * 60)
 					//go ou.leaderElection(ou.LeaderElection)
@@ -963,7 +936,7 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	//num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 100) + 5
+	//num := (rand.Float64() * 130) + 5
 	//num := (rand.Float64() * 50) + 5
 	num := (rand.Float64() * 230) + 5
 	return num
