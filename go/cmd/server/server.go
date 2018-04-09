@@ -293,7 +293,6 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 		go ou.notifyNeighboursGetData(sData)
 
 		if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
-			fmt.Printf("(%s): First element is leader..Send data\n", ou.Addr)
 			go ou.sendDataToLeader(sData)
 		} else {
 			//fmt.Printf("\n(%s) Accumulate data and send to leader (through path)\n", ou.Addr)
@@ -307,7 +306,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 }
 
 func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("(%s): Receive a new leader calculation handler\n", ou.Addr)
+	//fmt.Printf("(%s): Receive a new leader calculation handler\n", ou.Addr)
 	var recLeaderCalc LeaderCalculation
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -378,7 +377,7 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 				}
 			}
 		}
-		fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+		//fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
@@ -492,7 +491,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculation() {
 	//fmt.Printf("(%s): Gossip new leader calculation..\n", ou.Addr)
 	for _, addr := range ou.ReachableNeighbours {
 		url := fmt.Sprintf("http://%s/gossipNewLeaderCalculation", addr)
-		fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
+		//fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
 
 		b, err := json.Marshal(ou.LeaderCalculation)
 		if err != nil {
@@ -572,7 +571,7 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	//fmt.Printf("(%s): Last element is: %s\n", ou.Addr, lastElem)
 
 	url := fmt.Sprintf("http://%s/sendDataToLeader", lastElem)
-	fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
+	//fmt.Printf("\n(%s): Contacting neighbour url: %s\n", ou.Addr, url)
 
 	sensorData.Source = ou.Addr
 	sensorData.Destination = lastElem
@@ -648,7 +647,7 @@ func (ou *ObservationUnit) gossipLeaderElection() {
 	//fmt.Printf("(%s): Reachable Neighbours are: %+v\n", ou.Addr, ou.ReachableNeighbours)
 	for _, addr := range ou.ReachableNeighbours {
 		url := fmt.Sprintf("http://%s/gossipLeaderElection", addr)
-		fmt.Printf("\n(%s): Gossip new leader to url: %s \n", ou.Addr, url)
+		//fmt.Printf("\n(%s): Gossip new leader to url: %s \n", ou.Addr, url)
 
 		if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 			ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
@@ -670,7 +669,7 @@ func (ou *ObservationUnit) gossipLeaderElection() {
 }
 
 func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
-	fmt.Printf("\n(%s): LEADER ELECTION!!\n", ou.Addr)
+	//fmt.Printf("\n(%s): LEADER ELECTION!!\n", ou.Addr)
 
 	//No leader
 	if ou.LeaderElection.LeaderAddr == "" {
@@ -935,10 +934,10 @@ func hashByte(data []byte) uint32 {
 
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
-	//num := (rand.Float64() * 495) + 5
+	num := (rand.Float64() * 495) + 5
 	//num := (rand.Float64() * 130) + 5
 	//num := (rand.Float64() * 50) + 5
-	num := (rand.Float64() * 230) + 5
+	//num := (rand.Float64() * 350) + 5
 	return num
 }
 
