@@ -50,7 +50,6 @@ type ObservationUnit struct {
 	CHpercentage        float64  `json:"-"`
 	AccCount            int      `json:"-"`
 	SensorData          `json:"-"`
-	DataBaseStation     `json:"-"`
 	LeaderElection      `json:"-"`
 	LeaderCalculation   `json:"-"`
 }
@@ -65,15 +64,10 @@ type SensorData struct {
 	Accumulated bool
 }
 
-/*DataBaseStation2 is data sent to/gathered from the BS*/
-var DataBaseStation2 struct {
+/*DataBaseStation is data sent to/gathered from the BS*/
+var DataBaseStation struct {
 	sync.Mutex
 	BSdatamap2 map[uint32][]byte
-}
-
-/*DataBaseStation is data sent to/gathered from the BS*/
-type DataBaseStation struct {
-	BSdatamap map[uint32][]byte
 }
 
 /*LeaderElection contains info about new leader election*/
@@ -126,7 +120,7 @@ func startServer() {
 	batteryStart = 1800
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
-	DataBaseStation2.BSdatamap2 = make(map[uint32][]byte)
+	DataBaseStation.BSdatamap2 = make(map[uint32][]byte)
 
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
@@ -152,8 +146,6 @@ func startServer() {
 			Source:      "",
 			Destination: "",
 			Accumulated: false},
-		DataBaseStation: DataBaseStation{
-			BSdatamap: make(map[uint32][]byte)},
 		LeaderElection: LeaderElection{
 			ID:            hashAddress(hostaddress),
 			Number:        0.0,
@@ -340,8 +332,8 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
 	//var lock sync.RWMutex
-	DataBaseStation2.Lock()
-	defer DataBaseStation2.Unlock()
+	DataBaseStation.Lock()
+	defer DataBaseStation.Unlock()
 
 	body, err := ioutil.ReadAll(r.Body)
 	errorMsg("readall: ", err)
@@ -354,30 +346,30 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
-		if len(DataBaseStation2.BSdatamap2) == 0 {
+		if len(DataBaseStation.BSdatamap2) == 0 {
 			//fmt.Printf("(%s): 1. Locked for writing to map..\n", ou.Addr)
-			//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+			//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
 			//lock.Lock()
 			//defer lock.Unlock()
-			DataBaseStation2.BSdatamap2[sData.Fingerprint] = sData.Data
+			DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
 			//fmt.Printf("(%s): [0] Added data to BSdatamap\n", ou.Addr)
 		} else {
-			for key := range DataBaseStation2.BSdatamap2 {
+			for key := range DataBaseStation.BSdatamap2 {
 				//fmt.Println("key:", key, "value:", []byte(value))
 				if key == sData.Fingerprint {
 					//fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
 				} else if key != sData.Fingerprint {
 					//fmt.Printf("(%s): 2. Locked for writing to map..\n", ou.Addr)
-					//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+					//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
 					//lock.Lock()
 					//defer lock.Unlock()
-					DataBaseStation2.BSdatamap2[sData.Fingerprint] = sData.Data
+					DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
 					//fmt.Printf("(%s): [2]  Added data to BSdatamap\n\n", ou.Addr)
 				}
 			}
 		}
-		//fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation2.BSdatamap2)
+		//fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation.BSdatamap2)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
