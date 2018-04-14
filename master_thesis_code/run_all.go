@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"go/build"
 	"log"
 	"math/rand"
 	"os"
@@ -46,7 +47,13 @@ func main() {
 		if !sliceContains(takenPort, port) {
 			fmt.Println(i)
 			takenPort = append(takenPort, port)
-			cmnd := exec.Command("go", "run", "cmd/server/server.go", "run", "-Simport=8080", "-host=localhost", "-port=:"+sPort)
+
+			dir := fmt.Sprintf("%s/bin/server", GetGoPath())
+			args := []string{"run", "-Simport=", strconv.Itoa(8080), "-host=localhost:", "-port=:", sPort}
+
+			cmnd := exec.Command(dir, args...)
+
+			//cmnd := exec.Command("go", "run", "cmd/server/server.go", "run", "-Simport=8080", "-host=localhost", "-port=:"+sPort)
 			errorMsg("Command error: ", err)
 
 			//var out bytes.Buffer
@@ -76,6 +83,15 @@ func main() {
 	/*Need this so the program doesn't quit before the OU are done..*/
 	time.Sleep(1800 * time.Second)
 	printSlice(takenPort)
+}
+
+/*GetGoPath gets gopath*/
+func GetGoPath() string {
+	gopath := os.Getenv("GOPATH")
+	if gopath == "" {
+		gopath = build.Default.GOPATH
+	}
+	return gopath
 }
 
 func errorMsg(s string, err error) {
