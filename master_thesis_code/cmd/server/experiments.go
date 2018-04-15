@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/process"
 )
 
 /*Experiments measures memory, cpu etc on the system*/
@@ -17,17 +19,23 @@ func Experiments() {
 
 	memSlice := []string{}
 	cpuSlice := []string{}
+	procSlice := []string{}
 
 	fmem, err := os.OpenFile(folder+"/mem.log", os.O_APPEND|os.O_WRONLY, 0600)
 	ErrorMsg("Memory log: ", err)
 	defer fmem.Close()
 
 	fcpu, err := os.OpenFile(folder+"/cpu.log", os.O_APPEND|os.O_WRONLY, 0600)
-	ErrorMsg("Memory log: ", err)
+	ErrorMsg("CPU log: ", err)
 	defer fcpu.Close()
+
+	fproc, err := os.OpenFile(folder+"/proc.log", os.O_APPEND|os.O_WRONLY, 0600)
+	ErrorMsg("PROC log: ", err)
+	defer fproc.Close()
 
 	memWriter := csv.NewWriter(fmem)
 	cpuWriter := csv.NewWriter(fcpu)
+	procWriter := csv.NewWriter(fproc)
 
 	memSlice = append(memSlice, "UsedPercent")
 	memSlice = append(memSlice, "UsedMemory")
@@ -41,6 +49,12 @@ func Experiments() {
 	ErrorMsg("Error write CPU: ", err)
 	cpuWriter.Flush()
 	cpuSlice = []string{}
+
+	procSlice = append(procSlice, "NumProc")
+	err = procWriter.Write(procSlice)
+	ErrorMsg("Error write proc: ", err)
+	procWriter.Flush()
+	procSlice = []string{}
 
 	doneChan := make(chan bool)
 	go func() {
@@ -79,15 +93,25 @@ func Experiments() {
 			ErrorMsg("Error write CPU: ", err)
 			cpuWriter.Flush()
 			cpuSlice = []string{}
+			//CPU END
 
-			/*cpuPercentage, _ := cpu.Percent(0, true)
-			for i := range cpuPercentage {
-				newCPUPercentage = append(newCPUPercentage, string(i))
-			}
-			err = cpuWriter.Write(newCPUPercentage)
-			ErrorMsg("Error write mem: ", err)
-			cpuWriter.Flush()
-			*/
+			//DISK!!!
+
+			//NET!!!
+			//connections, _ := net.Connections()
+
+			//PROCESS !!!
+			//Number of processes running?
+			procConnections, _ := process.Processes()
+			fmt.Printf("procConnections: %d\n", len(procConnections))
+
+			numProc := strconv.Itoa(len(procConnections))
+			procSlice = append(procSlice, numProc)
+
+			err = procWriter.Write(procSlice)
+			ErrorMsg("Error write proc: ", err)
+			procWriter.Flush()
+			procSlice = []string{}
 		}
 	}
 
@@ -109,12 +133,4 @@ func Experiments() {
 	//PROCESS
 	//Number of processes running?
 
-}
-
-func runesToString(runes []rune) (outString string) {
-	// don't need index so _
-	for _, v := range runes {
-		outString += string(v)
-	}
-	return
 }
