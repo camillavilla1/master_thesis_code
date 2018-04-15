@@ -195,7 +195,7 @@ func (ou *ObservationUnit) clusterheadPercentageHandler(w http.ResponseWriter, r
 	var chPercentage float64
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &chPercentage); err != nil {
 		panic(err)
@@ -212,7 +212,7 @@ func (ou *ObservationUnit) reachableNeighboursHandler(w http.ResponseWriter, r *
 	var tmpNeighbour []string
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &tmpNeighbour); err != nil {
 		panic(err)
@@ -268,7 +268,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	var sData SensorData
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &sData); err != nil {
 		panic(err)
@@ -303,7 +303,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 	var recLeaderCalc LeaderCalculation
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &recLeaderCalc); err != nil {
 		panic(err)
@@ -337,7 +337,7 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer DataBaseStation.Unlock()
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &sData); err != nil {
 		panic(err)
@@ -383,7 +383,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	var newNeighbour string
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &newNeighbour); err != nil {
 		panic(err)
@@ -402,7 +402,7 @@ func (ou *ObservationUnit) gossipLeaderElectionHandler(w http.ResponseWriter, r 
 	var recLeaderData LeaderElection
 
 	body, err := ioutil.ReadAll(r.Body)
-	errorMsg("readall: ", err)
+	ErrorMsg("readall: ", err)
 
 	if err := json.Unmarshal(body, &recLeaderData); err != nil {
 		panic(err)
@@ -454,7 +454,7 @@ func (ou *ObservationUnit) tellContactingOuOk(newNeighbour string) {
 	addressBody := strings.NewReader(string(b))
 	ou.Sends++
 	_, err = http.Post(url, "string", addressBody)
-	errorMsg("Error posting to neighbour about connection ok: ", err)
+	ErrorMsg("Error posting to neighbour about connection ok: ", err)
 }
 
 /*Contant neighbours in range with OUs address as body to tell that it wants to connect */
@@ -495,7 +495,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculation() {
 		addressBody := strings.NewReader(string(b))
 		ou.Sends++
 		_, err = http.Post(url, "string", addressBody)
-		//errorMsg("Error posting to neighbour ", err)
+		//ErrorMsg("Error posting to neighbour ", err)
 		if err != nil {
 			fmt.Printf("(%s): Try to post notify neighbours to calculate new number %s\n", ou.Addr, err)
 			continue
@@ -528,7 +528,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 			//fmt.Println("\nAddressbody: ", addressBody)
 			ou.Sends++
 			_, err = http.Post(url, "string", addressBody)
-			//errorMsg("Error posting to neighbour ", err)
+			//ErrorMsg("Error posting to neighbour ", err)
 			if err != nil {
 				fmt.Printf("(%s): Try to post notify neighbours to get data %s\n", ou.Addr, err)
 				continue
@@ -586,7 +586,7 @@ func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	ou.Sends++
 	ou.SendsToLeader++
 	_, err = http.Post(url, "string", addressBody)
-	//errorMsg("Error posting to neighbour ", err)
+	//ErrorMsg("Error posting to neighbour ", err)
 	if err != nil {
 		fmt.Printf("(%s): Try to post new data to %s: %s\n", ou.Addr, lastElem, err)
 	}
@@ -607,7 +607,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 	addressBody := strings.NewReader(string(b))
 	ou.Sends++
 	res, err := http.Post(url, "bytes", addressBody)
-	errorMsg("POST request to Simulation failed: ", err)
+	ErrorMsg("POST request to Simulation failed: ", err)
 	io.Copy(os.Stdout, res.Body)
 }
 
@@ -625,7 +625,7 @@ func (ou *ObservationUnit) tellSimulationUnitDead() {
 	addressBody := strings.NewReader(string(b))
 	ou.Sends++
 	_, err = http.Post(url, "string", addressBody)
-	errorMsg("Post request dead OU: ", err)
+	ErrorMsg("Post request dead OU: ", err)
 }
 
 func (ou *ObservationUnit) shutdownOu() {
@@ -656,7 +656,7 @@ func (ou *ObservationUnit) gossipLeaderElection() {
 		addressBody := strings.NewReader(string(b))
 		ou.Sends++
 		_, err = http.Post(url, "string", addressBody)
-		errorMsg("Post request broadcasting election of new leader failed: ", err)
+		ErrorMsg("Post request broadcasting election of new leader failed: ", err)
 		//io.Copy(os.Stdout, res.Body)
 	}
 }
@@ -1006,7 +1006,8 @@ func randomInt(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-func errorMsg(s string, err error) {
+/*ErrorMsg returns error if any*/
+func ErrorMsg(s string, err error) {
 	if err != nil {
 		log.Fatal(s, err)
 	}
