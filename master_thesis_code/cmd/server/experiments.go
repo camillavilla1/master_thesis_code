@@ -96,9 +96,12 @@ func Experiments() {
 			//CPU END
 
 			//DISK!!!
+			//Do we need to measure disk-utilites??
+			//DISK END
 
 			//NET!!!
 			//connections, _ := net.Connections()
+			//NET END
 
 			//PROCESS !!!
 			//Number of processes running?
@@ -112,6 +115,7 @@ func Experiments() {
 			ErrorMsg("Error write proc: ", err)
 			procWriter.Flush()
 			procSlice = []string{}
+			//PROC END
 		}
 	}
 
@@ -127,10 +131,4 @@ func Experiments() {
 
 	//fmt.Printf("DISKstat: %+v\n", diskStat)
 	//fmt.Printf("DISK count: %+v\n", diskCount)
-
-	//NET
-
-	//PROCESS
-	//Number of processes running?
-
 }
