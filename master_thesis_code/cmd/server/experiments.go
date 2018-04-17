@@ -14,7 +14,7 @@ import (
 )
 
 /*Experiments measures memory, cpu etc on the system*/
-func Experiments(pid int) {
+func Experiments(pid int, hostAddress string) {
 	tickChan := time.NewTicker(time.Millisecond * 100).C
 	folder := "./cmd/server/results"
 
@@ -24,14 +24,14 @@ func Experiments(pid int) {
 	//netPath := folder + "/net.log"
 
 	//Delete files if exists
-	deleteFile(memPath)
-	deleteFile(cpuPath)
-	deleteFile(procPath)
+	//deleteFile(memPath)
+	//deleteFile(cpuPath)
+	//deleteFile(procPath)
 
 	//Create new files if not exist
-	createFile(memPath)
-	createFile(cpuPath)
-	createFile(procPath)
+	//createFile(memPath)
+	//createFile(cpuPath)
+	//createFile(procPath)
 
 	memSlice := []string{}
 	cpuSlice := []string{}
@@ -50,9 +50,13 @@ func Experiments(pid int) {
 	defer fproc.Close()
 
 	memWriter := csv.NewWriter(fmem)
+	memWriter.Comma = '\t'
 	cpuWriter := csv.NewWriter(fcpu)
+	cpuWriter.Comma = '\t'
 	procWriter := csv.NewWriter(fproc)
+	procWriter.Comma = '\t'
 
+	memSlice = append(memSlice, "HostAddress")
 	memSlice = append(memSlice, "UsedPercent")
 	memSlice = append(memSlice, "UsedMemory")
 	appendFile(memPath, memWriter, memSlice)
@@ -85,6 +89,7 @@ func Experiments(pid int) {
 			memUsedPercentage := strconv.FormatFloat(mem.UsedPercent, 'g', -1, 64)
 			memUsed := strconv.FormatUint(mem.Used, 10)
 			//fmt.Fprintln(w, "%f\t.", mem.UsedPercent)
+			memSlice = append(memSlice, hostAddress)
 			memSlice = append(memSlice, memUsedPercentage)
 			memSlice = append(memSlice, memUsed)
 
@@ -120,7 +125,11 @@ func Experiments(pid int) {
 
 			connections, err := net.ConnectionsPid("all", int32(pid))
 			ErrorMsg("con: ", err)
-			fmt.Printf("\nNET Connections: %v\n", connections)
+			//fmt.Printf("\nNET Connections: %v\n", connections)
+			fmt.Printf("LEN CONN: %d\n", len(connections))
+			for k, v := range connections {
+				fmt.Printf("CONN: %d = %s\n", k, v)
+			}
 
 			//NET END
 

@@ -101,7 +101,6 @@ func main() {
 		ret := setMaxProcs()
 		fmt.Printf("\n\n----------------------------------------------------------------------------\n")
 		fmt.Println("Processes:", ret)
-		go Experiments(os.Getpid())
 		//time.Sleep(time.Second * 1)
 		go startServer()
 		wg.Wait()
@@ -173,6 +172,8 @@ func startServer() {
 	http.HandleFunc("/gossipNewLeaderCalculation", ou.gossipNewLeaderCalculationHandler)
 
 	//go ou.checkBatteryStatus()
+	go Experiments(os.Getpid(), hostaddress)
+
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	ou.LeaderElection.Number = randomFloat()
