@@ -172,7 +172,7 @@ func startServer() {
 	http.HandleFunc("/gossipNewLeaderCalculation", ou.gossipNewLeaderCalculationHandler)
 
 	//go ou.checkBatteryStatus()
-	go Experiments(os.Getpid(), hostaddress)
+	go Experiments(os.Getpid())
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()

@@ -14,64 +14,32 @@ import (
 )
 
 /*Experiments measures memory, cpu etc on the system*/
-func Experiments(pid int, hostAddress string) {
+func Experiments(pid int) {
 	tickChan := time.NewTicker(time.Millisecond * 100).C
 	folder := "./cmd/server/results"
 
-	memPath := folder + "/mem.log"
-	cpuPath := folder + "/cpu.log"
-	procPath := folder + "/proc.log"
-	//netPath := folder + "/net.log"
+	path := folder + "/experience.log"
 
 	//Delete files if exists
 	//deleteFile(memPath)
-	//deleteFile(cpuPath)
-	//deleteFile(procPath)
 
 	//Create new files if not exist
 	//createFile(memPath)
-	//createFile(cpuPath)
-	//createFile(procPath)
 
-	memSlice := []string{}
-	cpuSlice := []string{}
-	procSlice := []string{}
+	infoSlice := []string{}
 
-	fmem, err := os.OpenFile(memPath, os.O_APPEND|os.O_WRONLY, 0600)
-	ErrorMsg("Memory log: ", err)
-	defer fmem.Close()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	ErrorMsg("Open file log: ", err)
+	defer f.Close()
 
-	fcpu, err := os.OpenFile(cpuPath, os.O_APPEND|os.O_WRONLY, 0600)
-	ErrorMsg("CPU log: ", err)
-	defer fcpu.Close()
+	writer := csv.NewWriter(f)
+	writer.Comma = '\t'
 
-	fproc, err := os.OpenFile(procPath, os.O_APPEND|os.O_WRONLY, 0600)
-	ErrorMsg("PROC log: ", err)
-	defer fproc.Close()
-
-	memWriter := csv.NewWriter(fmem)
-	memWriter.Comma = '\t'
-	cpuWriter := csv.NewWriter(fcpu)
-	cpuWriter.Comma = '\t'
-	procWriter := csv.NewWriter(fproc)
-	procWriter.Comma = '\t'
-
-	memSlice = append(memSlice, "HostAddress")
-	memSlice = append(memSlice, "UsedPercent")
-	memSlice = append(memSlice, "UsedMemory")
-	appendFile(memPath, memWriter, memSlice)
-	memSlice = []string{}
-
-	cpuSlice = append(cpuSlice, "CPUPercentage")
-	appendFile(cpuPath, cpuWriter, cpuSlice)
-	cpuSlice = []string{}
-
-	procSlice = append(procSlice, "NumProc")
-	//err = procWriter.Write(procSlice)
-	//ErrorMsg("Error write proc: ", err)
-	//procWriter.Flush()
-	appendFile(procPath, procWriter, procSlice)
-	procSlice = []string{}
+	//infoSlice = append(infoSlice, "HostAddress")
+	//infoSlice = append(infoSlice, "UsedPercent")
+	//infoSlice = append(infoSlice, "UsedMemory")
+	//appendFile(path, writer, infoSlice)
+	//infoSlice = []string{}
 
 	doneChan := make(chan bool)
 	go func() {
@@ -82,6 +50,11 @@ func Experiments(pid int, hostAddress string) {
 	for {
 		select {
 		case <-tickChan:
+			//TIME!!!
+			t := strconv.FormatInt(time.Now().Unix(), 10)
+			infoSlice = append(infoSlice, t)
+			//TIME END
+
 			//MEMORY!!!!
 			mem, _ := mem.VirtualMemory()
 			//fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", mem.Total, mem.Free, mem.UsedPercent)
@@ -89,39 +62,22 @@ func Experiments(pid int, hostAddress string) {
 			memUsedPercentage := strconv.FormatFloat(mem.UsedPercent, 'g', -1, 64)
 			memUsed := strconv.FormatUint(mem.Used, 10)
 			//fmt.Fprintln(w, "%f\t.", mem.UsedPercent)
-			memSlice = append(memSlice, hostAddress)
-			memSlice = append(memSlice, memUsedPercentage)
-			memSlice = append(memSlice, memUsed)
+			infoSlice = append(infoSlice, strconv.Itoa(pid))
+			infoSlice = append(infoSlice, memUsedPercentage)
+			infoSlice = append(infoSlice, memUsed)
 
-			appendFile(memPath, memWriter, memSlice)
-			memSlice = []string{}
+			//appendFile(path, writer, infoSlice)
+			//infoSlice = []string{}
 			//MEMORY END
 
 			//CPU!!
 			oneCPUPercentage, _ := cpu.Percent(0, false)
 			newOneCPUPercentage := strconv.FormatFloat(oneCPUPercentage[0], 'g', -1, 64)
-			cpuSlice = append(cpuSlice, newOneCPUPercentage)
+			infoSlice = append(infoSlice, newOneCPUPercentage)
 
-			appendFile(cpuPath, cpuWriter, cpuSlice)
-			cpuSlice = []string{}
+			//appendFile(path, writer, infoSlice)
+			//infoSlice = []string{}
 			//CPU END
-
-			//DISK!!!
-			//Do we need to measure disk-utilites??
-			//DISK END
-
-			//NET!!!
-			// inet, inet4, inet6, tcp, tcp4, tcp6, udp, udp4, udp6, unix, all
-			//fmt.Printf("PID: %d\n", int32(pid))
-			//connection, err := net.Connections("all")
-			//ErrorMsg("connection: ", err)
-			/*for k, v := range connection {
-				fmt.Printf("Connection: %d: %+v\n", k, v)
-				if v.Pid == int32(pid) {
-					fmt.Printf("\n\n SIMILAR!!!\n\n\n")
-					time.Sleep(time.Second * 5)
-				}
-			}*/
 
 			connections, err := net.ConnectionsPid("all", int32(pid))
 			ErrorMsg("con: ", err)
@@ -130,7 +86,6 @@ func Experiments(pid int, hostAddress string) {
 			for k, v := range connections {
 				fmt.Printf("CONN: %d = %s\n", k, v)
 			}
-
 			//NET END
 
 			//PROCESS !!!
@@ -139,10 +94,10 @@ func Experiments(pid int, hostAddress string) {
 			//fmt.Printf("procConnections: %d\n", len(procConnections))
 
 			numProc := strconv.Itoa(len(procConnections))
-			procSlice = append(procSlice, numProc)
+			infoSlice = append(infoSlice, numProc)
 
-			appendFile(procPath, procWriter, procSlice)
-			procSlice = []string{}
+			appendFile(path, writer, infoSlice)
+			infoSlice = []string{}
 			//PROC END
 		}
 	}
