@@ -55,30 +55,41 @@ func Experiments(pid int) {
 			infoSlice = append(infoSlice, t)
 			//TIME END
 
+			//PID!!
+			infoSlice = append(infoSlice, strconv.Itoa(pid))
+			//PID END
+
 			//MEMORY!!!!
 			mem, _ := mem.VirtualMemory()
 			//fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", mem.Total, mem.Free, mem.UsedPercent)
 
-			memUsedPercentage := strconv.FormatFloat(mem.UsedPercent, 'g', -1, 64)
+			memUsedPercentage2 := toFixed(mem.UsedPercent, 5)
+			memUsedPercentage := strconv.FormatFloat(memUsedPercentage2, 'g', -1, 64)
+
 			memUsed := strconv.FormatUint(mem.Used, 10)
 			//fmt.Fprintln(w, "%f\t.", mem.UsedPercent)
-			infoSlice = append(infoSlice, strconv.Itoa(pid))
 			infoSlice = append(infoSlice, memUsedPercentage)
 			infoSlice = append(infoSlice, memUsed)
-
-			//appendFile(path, writer, infoSlice)
-			//infoSlice = []string{}
 			//MEMORY END
 
 			//CPU!!
 			oneCPUPercentage, _ := cpu.Percent(0, false)
+			oneCPUPercentage[0] = toFixed(oneCPUPercentage[0], 5)
 			newOneCPUPercentage := strconv.FormatFloat(oneCPUPercentage[0], 'g', -1, 64)
-			infoSlice = append(infoSlice, newOneCPUPercentage)
 
-			//appendFile(path, writer, infoSlice)
-			//infoSlice = []string{}
+			infoSlice = append(infoSlice, newOneCPUPercentage)
 			//CPU END
 
+			//PROCEESS!!!
+			//Number of processes running?
+			procConnections, _ := process.Processes()
+			//fmt.Printf("procConnections: %d\n", len(procConnections))
+
+			numProc := strconv.Itoa(len(procConnections))
+			infoSlice = append(infoSlice, numProc)
+			//PROC END
+
+			//NET!!!
 			connections, err := net.ConnectionsPid("all", int32(pid))
 			ErrorMsg("con: ", err)
 			//fmt.Printf("\nNET Connections: %v\n", connections)
@@ -88,17 +99,9 @@ func Experiments(pid int) {
 			}
 			//NET END
 
-			//PROCESS !!!
-			//Number of processes running?
-			procConnections, _ := process.Processes()
-			//fmt.Printf("procConnections: %d\n", len(procConnections))
-
-			numProc := strconv.Itoa(len(procConnections))
-			infoSlice = append(infoSlice, numProc)
-
 			appendFile(path, writer, infoSlice)
 			infoSlice = []string{}
-			//PROC END
+
 		}
 	}
 }
@@ -137,5 +140,4 @@ func appendFile(path string, writer *csv.Writer, slice []string) {
 	err = writer.Write(slice)
 	ErrorMsg("Error write to log: ", err)
 	writer.Flush()
-	//slice = []string{}
 }
