@@ -9,27 +9,43 @@ import (
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 	"github.com/shirou/gopsutil/process"
 )
 
 /*Experiments measures memory, cpu etc on the system*/
-func Experiments() {
-	tickChan := time.NewTicker(time.Second * 10).C
+func Experiments(pid int) {
+	tickChan := time.NewTicker(time.Millisecond * 100).C
 	folder := "./cmd/server/results"
+
+	memPath := folder + "/mem.log"
+	cpuPath := folder + "/cpu.log"
+	procPath := folder + "/proc.log"
+	//netPath := folder + "/net.log"
+
+	//Delete files if exists
+	deleteFile(memPath)
+	deleteFile(cpuPath)
+	deleteFile(procPath)
+
+	//Create new files if not exist
+	createFile(memPath)
+	createFile(cpuPath)
+	createFile(procPath)
 
 	memSlice := []string{}
 	cpuSlice := []string{}
 	procSlice := []string{}
 
-	fmem, err := os.OpenFile(folder+"/mem.log", os.O_APPEND|os.O_WRONLY, 0600)
+	fmem, err := os.OpenFile(memPath, os.O_APPEND|os.O_WRONLY, 0600)
 	ErrorMsg("Memory log: ", err)
 	defer fmem.Close()
 
-	fcpu, err := os.OpenFile(folder+"/cpu.log", os.O_APPEND|os.O_WRONLY, 0600)
+	fcpu, err := os.OpenFile(cpuPath, os.O_APPEND|os.O_WRONLY, 0600)
 	ErrorMsg("CPU log: ", err)
 	defer fcpu.Close()
 
-	fproc, err := os.OpenFile(folder+"/proc.log", os.O_APPEND|os.O_WRONLY, 0600)
+	fproc, err := os.OpenFile(procPath, os.O_APPEND|os.O_WRONLY, 0600)
 	ErrorMsg("PROC log: ", err)
 	defer fproc.Close()
 
@@ -39,21 +55,18 @@ func Experiments() {
 
 	memSlice = append(memSlice, "UsedPercent")
 	memSlice = append(memSlice, "UsedMemory")
-	err = memWriter.Write(memSlice)
-	ErrorMsg("Error write mem: ", err)
-	memWriter.Flush()
+	appendFile(memPath, memWriter, memSlice)
 	memSlice = []string{}
 
 	cpuSlice = append(cpuSlice, "CPUPercentage")
-	err = cpuWriter.Write(cpuSlice)
-	ErrorMsg("Error write CPU: ", err)
-	cpuWriter.Flush()
+	appendFile(cpuPath, cpuWriter, cpuSlice)
 	cpuSlice = []string{}
 
 	procSlice = append(procSlice, "NumProc")
-	err = procWriter.Write(procSlice)
-	ErrorMsg("Error write proc: ", err)
-	procWriter.Flush()
+	//err = procWriter.Write(procSlice)
+	//ErrorMsg("Error write proc: ", err)
+	//procWriter.Flush()
+	appendFile(procPath, procWriter, procSlice)
 	procSlice = []string{}
 
 	doneChan := make(chan bool)
@@ -65,9 +78,6 @@ func Experiments() {
 	for {
 		select {
 		case <-tickChan:
-			memWriter := csv.NewWriter(fmem)
-			cpuWriter := csv.NewWriter(fcpu)
-
 			//MEMORY!!!!
 			mem, _ := mem.VirtualMemory()
 			//fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", mem.Total, mem.Free, mem.UsedPercent)
@@ -78,9 +88,7 @@ func Experiments() {
 			memSlice = append(memSlice, memUsedPercentage)
 			memSlice = append(memSlice, memUsed)
 
-			err = memWriter.Write(memSlice)
-			ErrorMsg("Error write mem: ", err)
-			memWriter.Flush()
+			appendFile(memPath, memWriter, memSlice)
 			memSlice = []string{}
 			//MEMORY END
 
@@ -89,9 +97,7 @@ func Experiments() {
 			newOneCPUPercentage := strconv.FormatFloat(oneCPUPercentage[0], 'g', -1, 64)
 			cpuSlice = append(cpuSlice, newOneCPUPercentage)
 
-			err = cpuWriter.Write(cpuSlice)
-			ErrorMsg("Error write CPU: ", err)
-			cpuWriter.Flush()
+			appendFile(cpuPath, cpuWriter, cpuSlice)
 			cpuSlice = []string{}
 			//CPU END
 
@@ -100,35 +106,72 @@ func Experiments() {
 			//DISK END
 
 			//NET!!!
-			//connections, _ := net.Connections()
+			// inet, inet4, inet6, tcp, tcp4, tcp6, udp, udp4, udp6, unix, all
+			//fmt.Printf("PID: %d\n", int32(pid))
+			//connection, err := net.Connections("all")
+			//ErrorMsg("connection: ", err)
+			/*for k, v := range connection {
+				fmt.Printf("Connection: %d: %+v\n", k, v)
+				if v.Pid == int32(pid) {
+					fmt.Printf("\n\n SIMILAR!!!\n\n\n")
+					time.Sleep(time.Second * 5)
+				}
+			}*/
+
+			connections, err := net.ConnectionsPid("all", int32(pid))
+			ErrorMsg("con: ", err)
+			fmt.Printf("\nNET Connections: %v\n", connections)
+
 			//NET END
 
 			//PROCESS !!!
 			//Number of processes running?
 			procConnections, _ := process.Processes()
-			fmt.Printf("procConnections: %d\n", len(procConnections))
+			//fmt.Printf("procConnections: %d\n", len(procConnections))
 
 			numProc := strconv.Itoa(len(procConnections))
 			procSlice = append(procSlice, numProc)
 
-			err = procWriter.Write(procSlice)
-			ErrorMsg("Error write proc: ", err)
-			procWriter.Flush()
+			appendFile(procPath, procWriter, procSlice)
 			procSlice = []string{}
 			//PROC END
 		}
 	}
+}
 
-	//DISK
-	//diskStat, _ := disk.Usage("/")
-	//diskCount, _ := disk.IOCounters()
+func createFile(path string) {
+	// detect if file exists
+	var _, err = os.Stat(path)
 
-	//diskRead, _ := disk.IOCountersStat()
-	//diskWrite, _ := disk.IOCountersStat()
+	// create file if not exists
+	if os.IsNotExist(err) {
+		var file, err = os.Create(path)
+		ErrorMsg("Create file: ", err)
+		defer file.Close()
+	}
 
-	//diskReadBytes, _ := disk.IOCountersStat.ReadBytes()
-	//diskWriteBytes, _ := disk.IOCountersStat.WriteBytes()
+	fmt.Println("==> Done creating file", path)
+}
 
-	//fmt.Printf("DISKstat: %+v\n", diskStat)
-	//fmt.Printf("DISK count: %+v\n", diskCount)
+func deleteFile(path string) {
+	var _, err = os.Stat(path)
+
+	// create file if not exists
+	if !os.IsNotExist(err) {
+		// delete file
+		var err = os.Remove(path)
+		ErrorMsg("Delete file: ", err)
+	}
+	fmt.Println("==> Done deleting file")
+}
+
+func appendFile(path string, writer *csv.Writer, slice []string) {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	ErrorMsg("Append to log: ", err)
+	defer f.Close()
+
+	err = writer.Write(slice)
+	ErrorMsg("Error write to log: ", err)
+	writer.Flush()
+	//slice = []string{}
 }

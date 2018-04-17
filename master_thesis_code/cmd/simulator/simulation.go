@@ -113,7 +113,6 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &ou); err != nil {
 		panic(err)
 	}
-	//fmt.Println(ou)
 
 	if !listContains(runningNodes, ou.Addr) {
 		runningNodes = append(runningNodes, ou.Addr)

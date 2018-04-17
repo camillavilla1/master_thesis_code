@@ -101,7 +101,8 @@ func main() {
 		ret := setMaxProcs()
 		fmt.Printf("\n\n----------------------------------------------------------------------------\n")
 		fmt.Println("Processes:", ret)
-		Experiments()
+		go Experiments(os.Getpid())
+		//time.Sleep(time.Second * 1)
 		go startServer()
 		wg.Wait()
 

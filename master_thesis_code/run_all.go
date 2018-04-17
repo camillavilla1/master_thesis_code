@@ -43,13 +43,12 @@ func main() {
 		//fmt.Println(i)
 
 		port++
-		sPort := strconv.Itoa(port)
 		if !sliceContains(takenPort, port) {
 			fmt.Println(i)
 			takenPort = append(takenPort, port)
 
 			dir := fmt.Sprintf("%s/bin/server", GetGoPath())
-			args := []string{"run", "-Simport=", strconv.Itoa(8080), "-host=localhost:", "-port=:", sPort}
+			args := []string{"run", "-Simport=8080", "-host=localhost", "-port=:" + strconv.Itoa(port)}
 
 			cmnd := exec.Command(dir, args...)
 
