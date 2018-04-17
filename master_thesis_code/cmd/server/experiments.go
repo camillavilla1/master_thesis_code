@@ -35,9 +35,13 @@ func Experiments(pid int) {
 	writer := csv.NewWriter(f)
 	writer.Comma = '\t'
 
-	//infoSlice = append(infoSlice, "HostAddress")
-	//infoSlice = append(infoSlice, "UsedPercent")
-	//infoSlice = append(infoSlice, "UsedMemory")
+	//infoSlice = append(infoSlice, "Time")
+	//infoSlice = append(infoSlice, "PID")
+	//infoSlice = append(infoSlice, "MemPercent")
+	//infoSlice = append(infoSlice, "MemUsed")
+	//infoSlice = append(infoSlice, "CPUPercent")
+	//infoSlice = append(infoSlice, "NumProc")
+	//infoSlice = append(infoSlice, "Conn")
 	//appendFile(path, writer, infoSlice)
 	//infoSlice = []string{}
 
@@ -83,7 +87,6 @@ func Experiments(pid int) {
 			//PROCEESS!!!
 			//Number of processes running?
 			procConnections, _ := process.Processes()
-			//fmt.Printf("procConnections: %d\n", len(procConnections))
 
 			numProc := strconv.Itoa(len(procConnections))
 			infoSlice = append(infoSlice, numProc)
