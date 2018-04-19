@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -18,13 +17,7 @@ func Experiments(pid int) {
 	tickChan := time.NewTicker(time.Millisecond * 100).C
 	folder := "./cmd/server/results"
 
-	path := folder + "/experience.log"
-
-	//Delete files if exists
-	//deleteFile(memPath)
-
-	//Create new files if not exist
-	//createFile(memPath)
+	path := folder + "/experience.csv"
 
 	infoSlice := []string{}
 
@@ -34,16 +27,6 @@ func Experiments(pid int) {
 
 	writer := csv.NewWriter(f)
 	writer.Comma = '\t'
-
-	//infoSlice = append(infoSlice, "Time")
-	//infoSlice = append(infoSlice, "PID")
-	//infoSlice = append(infoSlice, "MemPercent")
-	//infoSlice = append(infoSlice, "MemUsed")
-	//infoSlice = append(infoSlice, "CPUPercent")
-	//infoSlice = append(infoSlice, "NumProc")
-	//infoSlice = append(infoSlice, "Conn")
-	//appendFile(path, writer, infoSlice)
-	//infoSlice = []string{}
 
 	doneChan := make(chan bool)
 	go func() {
@@ -67,7 +50,7 @@ func Experiments(pid int) {
 			mem, _ := mem.VirtualMemory()
 			//fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", mem.Total, mem.Free, mem.UsedPercent)
 
-			memUsedPercentage2 := toFixed(mem.UsedPercent, 5)
+			memUsedPercentage2 := toFixed(mem.UsedPercent, 3)
 			memUsedPercentage := strconv.FormatFloat(memUsedPercentage2, 'g', -1, 64)
 
 			memUsed := strconv.FormatUint(mem.Used, 10)
@@ -78,7 +61,7 @@ func Experiments(pid int) {
 
 			//CPU!!
 			oneCPUPercentage, _ := cpu.Percent(0, false)
-			oneCPUPercentage[0] = toFixed(oneCPUPercentage[0], 5)
+			oneCPUPercentage[0] = toFixed(oneCPUPercentage[0], 3)
 			newOneCPUPercentage := strconv.FormatFloat(oneCPUPercentage[0], 'g', -1, 64)
 
 			infoSlice = append(infoSlice, newOneCPUPercentage)
@@ -87,6 +70,8 @@ func Experiments(pid int) {
 			//PROCEESS!!!
 			//Number of processes running?
 			procConnections, _ := process.Processes()
+			//func (*Process) CPUPercent
+			//func (*Process) MemoryPercent
 
 			numProc := strconv.Itoa(len(procConnections))
 			infoSlice = append(infoSlice, numProc)
@@ -96,43 +81,18 @@ func Experiments(pid int) {
 			connections, err := net.ConnectionsPid("all", int32(pid))
 			ErrorMsg("con: ", err)
 			//fmt.Printf("\nNET Connections: %v\n", connections)
-			fmt.Printf("LEN CONN: %d\n", len(connections))
-			for k, v := range connections {
-				fmt.Printf("CONN: %d = %s\n", k, v)
-			}
+			//fmt.Printf("LEN CONN: %d\n", len(connections))
+			infoSlice = append(infoSlice, strconv.Itoa(len(connections)))
 			//NET END
+
+			//infoSlice = append(infoSlice, strconv.Itoa(sends))
+			//infoSlice = append(infoSlice, strconv.Itoa(sendsToLeader))
 
 			appendFile(path, writer, infoSlice)
 			infoSlice = []string{}
 
 		}
 	}
-}
-
-func createFile(path string) {
-	// detect if file exists
-	var _, err = os.Stat(path)
-
-	// create file if not exists
-	if os.IsNotExist(err) {
-		var file, err = os.Create(path)
-		ErrorMsg("Create file: ", err)
-		defer file.Close()
-	}
-
-	fmt.Println("==> Done creating file", path)
-}
-
-func deleteFile(path string) {
-	var _, err = os.Stat(path)
-
-	// create file if not exists
-	if !os.IsNotExist(err) {
-		// delete file
-		var err = os.Remove(path)
-		ErrorMsg("Delete file: ", err)
-	}
-	fmt.Println("==> Done deleting file")
 }
 
 func appendFile(path string, writer *csv.Writer, slice []string) {

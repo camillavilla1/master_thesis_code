@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
@@ -178,7 +179,7 @@ func startServer() {
 	go ou.tellSimulationUnit()
 	ou.LeaderElection.Number = randomFloat()
 	//go ou.calculateLeaderThreshold()
-	fmt.Printf("\n(%s): Random number %f\n", ou.Addr, ou.LeaderElection.Number)
+	//fmt.Printf("\n(%s): Random number %f\n", ou.Addr, ou.LeaderElection.Number)
 
 	go ou.measureSensorData()
 
@@ -324,7 +325,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 		ou.LeaderElection.TmpLeaderAddr = ou.LeaderElection.LeaderAddr
 		ou.LeaderElection.LeaderAddr = ""
 
-		fmt.Printf("\n!!!!!!!!\n(%s): Random number updated is: %f\n", ou.Addr, ou.LeaderElection.Number)
+		//fmt.Printf("\n!!!!!!!!\n(%s): Random number updated is: %f\n", ou.Addr, ou.LeaderElection.Number)
 		go ou.gossipNewLeaderCalculation()
 	} else {
 		//fmt.Printf("(%s): Received this msg before..\n", ou.Addr)
@@ -352,23 +353,16 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 		if len(DataBaseStation.BSdatamap2) == 0 {
 			//fmt.Printf("(%s): 1. Locked for writing to map..\n", ou.Addr)
 			//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
-			//lock.Lock()
-			//defer lock.Unlock()
 			DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
-			//fmt.Printf("(%s): [0] Added data to BSdatamap\n", ou.Addr)
 		} else {
 			for key := range DataBaseStation.BSdatamap2 {
-				//fmt.Println("key:", key, "value:", []byte(value))
 				if key == sData.Fingerprint {
 					//fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
 				} else if key != sData.Fingerprint {
 					//fmt.Printf("(%s): 2. Locked for writing to map..\n", ou.Addr)
 					//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
-					//lock.Lock()
-					//defer lock.Unlock()
 					DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
-					//fmt.Printf("(%s): [2]  Added data to BSdatamap\n\n", ou.Addr)
 				}
 			}
 		}
@@ -677,13 +671,11 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 		}
 
-		//fmt.Printf("\n\n--------------------\n(%s): OU-LEADERELECTION IS: %+v\n--------------------\n\n", ou.Addr, ou.LeaderElection)
-
 		//ou.updateLeader(recLeaderData)
 		go ou.gossipLeaderElection()
 		return
 	}
-	//fmt.Printf("(%s): Received data is: %+v\n\n", ou.Addr, recLeaderData)
+
 	//If the one sending out the leader election is the one we have here
 	if ou.LeaderElection.ID == recLeaderData.ID {
 		//fmt.Printf("(%s): OU ID (%d) and received ID (%d) are similar.\n", ou.Addr, ou.LeaderElection.ID, recLeaderData.ID)
@@ -819,7 +811,6 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 
 func (ou *ObservationUnit) calculateLeaderThreshold() {
 	time.Sleep(time.Second * 1)
-	//have battery, bw, #sends(?) #communication with neighbours.., #neighbours, len(path to leader), Leaderpercentage
 	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.Bandwidth)
 	fmt.Printf("(%s): # neighbours: %d\n", ou.Addr, len(ou.ReachableNeighbours))
 	fmt.Printf("(%s): Length of leaderpath: %d\n", ou.Addr, len(ou.LeaderElection.LeaderPath))
@@ -840,7 +831,7 @@ func (ou *ObservationUnit) getData() {
 	var count uint32
 	num = 0
 	count = 0
-	tickChan := time.NewTicker(time.Second * 180).C
+	tickChan := time.NewTicker(time.Second * 30).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -849,11 +840,10 @@ func (ou *ObservationUnit) getData() {
 	}()
 
 	for {
-		time.Sleep(time.Second * 50)
+		time.Sleep(time.Second * 30)
 		if ou.LeaderElection.LeaderAddr == ou.Addr {
 			select {
 			case <-tickChan:
-				//if ou.LeaderElection.LeaderAddr == ou.Addr {
 				fmt.Printf("\n\n####################################\n(%s): IS LEADER.. SHOULD ASK FOR DATA\n####################################\n", ou.Addr)
 				num++
 				ou.SensorData.ID = ou.ID + num
@@ -867,9 +857,8 @@ func (ou *ObservationUnit) getData() {
 				if ou.AccCount == 2 {
 					//Accumulated data x times, elect a new leader..
 					fmt.Printf("\n\n------------\n(%s): LEADER SENT DATA 2 TIMES!!!\n------------\n", ou.Addr)
-					fmt.Printf("\n!!!!!!!!!!!\n(%s): Old random number is: %f\n", ou.Addr, ou.LeaderElection.Number)
+
 					ou.LeaderElection.Number = randomFloat()
-					fmt.Printf("(%s): New random number is: %f\n!!!!!!!!!!!\n", ou.Addr, ou.LeaderElection.Number)
 					ou.LeaderCalculation.ID = hashAddress(ou.Addr)
 					count++
 					ou.LeaderCalculation.ID = ou.LeaderCalculation.ID + count
@@ -881,11 +870,9 @@ func (ou *ObservationUnit) getData() {
 					*/
 					go ou.gossipNewLeaderCalculation()
 					time.Sleep(time.Second * 60)
-					//go ou.leaderElection(ou.LeaderElection)
 					go ou.gossipLeaderElection()
 
 				}
-				//}
 			case <-doneChan:
 				return
 			}
