@@ -68,7 +68,7 @@ type SensorData struct {
 /*DataBaseStation is data sent to/gathered from the BS*/
 var DataBaseStation struct {
 	sync.Mutex
-	BSdatamap2 map[uint32][]byte
+	BSdatamap map[uint32][]byte
 }
 
 /*LeaderElection contains info about new leader election*/
@@ -122,7 +122,7 @@ func startServer() {
 	batteryStart = 1800
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
-	DataBaseStation.BSdatamap2 = make(map[uint32][]byte)
+	DataBaseStation.BSdatamap = make(map[uint32][]byte)
 
 	log.Printf("Starting Observation Unit on %s\n", hostaddress)
 
@@ -350,23 +350,23 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
-		if len(DataBaseStation.BSdatamap2) == 0 {
+		if len(DataBaseStation.BSdatamap) == 0 {
 			//fmt.Printf("(%s): 1. Locked for writing to map..\n", ou.Addr)
-			//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
-			DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
+			//fmt.Printf("(%s): BSdatamap is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap)
+			DataBaseStation.BSdatamap[sData.Fingerprint] = sData.Data
 		} else {
-			for key := range DataBaseStation.BSdatamap2 {
+			for key := range DataBaseStation.BSdatamap {
 				if key == sData.Fingerprint {
 					//fmt.Printf("(%s): [1] Key and Fingerprint is similar: %d\n", ou.Addr, key)
 					//log.Printf("(%s):APPENDING %+v", ou.Addr, append(ou.BSdatamap[sData.Fingerprint][:], sData.Data[:]...))
 				} else if key != sData.Fingerprint {
 					//fmt.Printf("(%s): 2. Locked for writing to map..\n", ou.Addr)
-					//fmt.Printf("(%s): BSdatamap2 is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap2)
-					DataBaseStation.BSdatamap2[sData.Fingerprint] = sData.Data
+					//fmt.Printf("(%s): BSdatamap is %+v\n\n", ou.Addr, DataBaseStation.BSdatamap)
+					DataBaseStation.BSdatamap[sData.Fingerprint] = sData.Data
 				}
 			}
 		}
-		//fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation.BSdatamap2)
+		//fmt.Printf("\n------------\n(%s): MAP IS: %+v\n------------\n\n", ou.Addr, DataBaseStation.BSdatamap)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		//fmt.Printf("\n(%s): is not leader. Accumulate data and send to leader..\n", ou.Addr)
