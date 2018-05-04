@@ -147,10 +147,12 @@ func getClusterheadPercentage(ou ObservationUnit) {
 
 	addressBody := strings.NewReader(string(b))
 
-	res, err := http.Post(url, "string", addressBody)
-	errorMsg("Post request telling OU about CH percentage failed: ", err)
-	io.Copy(os.Stdout, res.Body)
-
+	_, err = http.Post(url, "string", addressBody)
+	//errorMsg("Post request telling OU about CH percentage failed: ", err)
+	//io.Copy(os.Stdout, res.Body)
+	if err != nil {
+		fmt.Printf("Post request telling OU about CH percentage failed: %s\n", err)
+	}
 }
 
 /*Find nearest neighbour(s) that OUnode can contact.*/
