@@ -19,7 +19,6 @@ var ouPort string
 
 var numOU int64
 
-//var numCH int64
 var num int64
 
 var runningNodes []string
@@ -127,10 +126,9 @@ func reachableOuHandler(w http.ResponseWriter, r *http.Request) {
 
 	go getClusterheadPercentage(ou)
 	go findNearestneighbours(ou)
-
-	//fmt.Printf("\n")
 }
 
+/*getClusterheadPercentage return a how many nodes in the cluster should be cluster heads*/
 func getClusterheadPercentage(ou ObservationUnit) {
 	ou.CHpercentage = float64(*numCH) / 100
 
@@ -171,19 +169,15 @@ func findNearestneighbours(ou ObservationUnit) {
 
 	/*Tell OU about no neighbours or neighbours..*/
 	if len(ou.ReachableNeighbours) >= 1 {
-		//fmt.Println("# OU neighbours: ", len(ou.ReachableNeighbours))
-		/*Need to sleep, or else it get connection refused.*/
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuAboutReachableNeighbour(ou)
 	} else {
-		//fmt.Printf("OU have no neighbours..\n")
 		time.Sleep(1000 * time.Millisecond)
 		go tellOuNoReachableNeighbours(ou)
 	}
 }
 
 func tellOuNoReachableNeighbours(ou ObservationUnit) {
-	//fmt.Printf("\n### tell Ou NoReachableNeighbours ###\n")
 	url := fmt.Sprintf("http://%s/noReachableNeighbours", ou.Addr)
 	fmt.Printf("Sending no reachable neighbours to url: %s\n", url)
 

@@ -239,9 +239,6 @@ func (ou *ObservationUnit) NoReachableNeighboursHandler(w http.ResponseWriter, r
 
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
-
-	//go ou.calculateLeaderThreshold()
-	//go ou.leaderElection(ou.LeaderElection)
 }
 
 /*Receive a new neighbour from OU that wants to connect to the cluster/a neighbour.*/
@@ -293,6 +290,7 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 	}
 }
 
+/*gossipNewLeaderCalculationHandler calculates a new score for leader election*/
 func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWriter, r *http.Request) {
 	var recLeaderCalc LeaderCalculation
 
@@ -320,6 +318,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculationHandler(w http.ResponseWrit
 	}
 }
 
+/*sendDataToLeaderHandler handles/accumulates data as ch or as regular node */
 func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
 
@@ -346,13 +345,14 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 				}
 			}
 		}
+		fmt.Printf("(%s): Received source is %s\n", ou.Addr, sData.Source)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		go ou.accumulateSensorData(sData)
 	}
 }
 
-/*Receive OK that new OU can join.*/
+/*connectingOkHandler receive OK that new OU can join.*/
 func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Request) {
 	var newNeighbour string
 
@@ -371,6 +371,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
+/*gossipLeaderElectionHandler receives a new leader election and starts a new leader election*/
 func (ou *ObservationUnit) gossipLeaderElectionHandler(w http.ResponseWriter, r *http.Request) {
 	var recLeaderData LeaderElection
 
@@ -410,7 +411,7 @@ func (ou *ObservationUnit) shutdownHandler(w http.ResponseWriter, r *http.Reques
 	os.Exit(0)
 }
 
-/*Tell contaction OU that it is ok to join the cluster*/
+/*tellContactingOuOk tell contaction OU that it is ok to join the cluster*/
 func (ou *ObservationUnit) tellContactingOuOk(newNeighbour string) {
 	url := fmt.Sprintf("http://%s/connectingOk", newNeighbour)
 	//fmt.Printf("Sending to url: %s\n", url)
@@ -450,6 +451,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 	}
 }
 
+/*gossipNewLeaderCalculation gossip new leader calculation to its neighours*/
 func (ou *ObservationUnit) gossipNewLeaderCalculation() {
 	for _, addr := range ou.ReachableNeighbours {
 		url := fmt.Sprintf("http://%s/gossipNewLeaderCalculation", addr)
@@ -471,7 +473,7 @@ func (ou *ObservationUnit) gossipNewLeaderCalculation() {
 	}
 }
 
-/*How to broadcast to neighbours with/without list of path... and how to receive??*/
+/*notifyNeighboursGetData notify neighbours to send data to leader*/
 func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 	for _, addr := range ou.ReachableNeighbours {
 		if addr != sensorData.Source {
@@ -500,6 +502,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 	}
 }
 
+/*sendDataToLeader sends data to the next neighbour in the path to leader*/
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	var lastElem string
 
@@ -583,6 +586,7 @@ func (ou *ObservationUnit) shutdownOu() {
 	os.Exit(0)
 }
 
+/*gossipLeaderElection gossip leader election to neighbours*/
 func (ou *ObservationUnit) gossipLeaderElection() {
 	for _, addr := range ou.ReachableNeighbours {
 		url := fmt.Sprintf("http://%s/gossipLeaderElection", addr)
@@ -605,6 +609,7 @@ func (ou *ObservationUnit) gossipLeaderElection() {
 	}
 }
 
+/*leaderElection to find out which node should be leader*/
 func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 	//No leader
 	if ou.LeaderElection.LeaderAddr == "" {
@@ -684,7 +689,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 	}
 }
 
-/*Chose if node is the biggest and become chief..*/
+/*Chose if node is the biggest..*/
 func (ou *ObservationUnit) biggestID() bool {
 	var biggest uint32
 
@@ -709,6 +714,7 @@ func (ou *ObservationUnit) biggestID() bool {
 	return false
 }
 
+/*accumulateSensorData accumulates data if not accumualted before and send to leader*/
 func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	var lock sync.RWMutex
 
@@ -723,6 +729,7 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	go ou.sendDataToLeader(ou.SensorData)
 }
 
+/*calculateLeaderThreshold algorithm for calculate if a node can be ch..*/
 func (ou *ObservationUnit) calculateLeaderThreshold() {
 	time.Sleep(time.Second * 1)
 	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.Bandwidth)
@@ -740,12 +747,13 @@ func (ou *ObservationUnit) calculateLeaderThreshold() {
 	time.Sleep(time.Second * 60)
 }
 
+/*getData gathers data in intervals from nodes in the clusters*/
 func (ou *ObservationUnit) getData() {
 	var num uint32
 	var count uint32
 	num = 0
 	count = 0
-	tickChan := time.NewTicker(time.Second * 120).C
+	tickChan := time.NewTicker(time.Second * 180).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -779,11 +787,11 @@ func (ou *ObservationUnit) getData() {
 					ou.LeaderCalculation.ID = ou.LeaderCalculation.ID + count
 					ou.AccCount = 0
 
-					time.Sleep(time.Second * 60)
+					time.Sleep(time.Second * 80)
 					fmt.Printf("(%s): Leader gossip new leader calculation \n", ou.Addr)
 					go ou.gossipNewLeaderCalculation()
 
-					time.Sleep(time.Second * 120)
+					time.Sleep(time.Second * 180)
 					fmt.Printf("(%s): Leader gossip new leader election \n", ou.Addr)
 					go ou.gossipLeaderElection()
 				}
@@ -831,7 +839,7 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 130) + 5
+	//num := (rand.Float64() * 200) + 5
 	//num := (rand.Float64() * 50) + 5
 	//num := (rand.Float64() * 350) + 5
 	return num
@@ -850,6 +858,7 @@ func (ou *ObservationUnit) checkBatteryStatus() {
 	}
 }
 
+/*batteryConsumption simulates a nodes battery lifetime..*/
 func (ou *ObservationUnit) batteryConsumption() {
 	tickChan := time.NewTicker(time.Second * 1).C
 

@@ -14,7 +14,7 @@ import (
 
 /*Experiments measures memory, cpu etc on the system*/
 func Experiments(pid int) {
-	tickChan := time.NewTicker(time.Millisecond * 1000).C
+	tickChan := time.NewTicker(time.Millisecond * 5000).C
 	folder := "./cmd/server/results"
 
 	path := folder + "/experience.csv"
@@ -53,13 +53,13 @@ func Experiments(pid int) {
 			memUsedPercentage2 := toFixed(mem.UsedPercent, 3)
 			memUsedPercentage := strconv.FormatFloat(memUsedPercentage2, 'g', -1, 64)
 
-			totMem := strconv.FormatUint(mem.Total, 10)
+			//totMem := strconv.FormatUint(mem.Total, 10)
 
-			memUsed := strconv.FormatUint(mem.Used, 10)
+			//memUsed := strconv.FormatUint(mem.Used, 10)
 			//fmt.Fprintln(w, "%f\t.", mem.UsedPercent)
 			infoSlice = append(infoSlice, memUsedPercentage)
-			infoSlice = append(infoSlice, totMem)
-			infoSlice = append(infoSlice, memUsed)
+			//infoSlice = append(infoSlice, totMem)
+			//infoSlice = append(infoSlice, memUsed)
 			//MEMORY END
 
 			//CPU!!
