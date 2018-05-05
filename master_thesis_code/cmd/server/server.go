@@ -120,7 +120,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 func startServer() {
 	/*ca 225 = 3.5 min, 450 = 7.5 min, 900 = 15 min*/
-	batteryStart = 900
+	batteryStart = 1800
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
 	DataBaseStation.BSdatamap = make(map[uint32][]byte)
@@ -345,7 +345,6 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 				}
 			}
 		}
-		fmt.Printf("(%s): Received source is %s\n", ou.Addr, sData.Source)
 		fmt.Printf("(%s): Accumulated data from other nodes\n", ou.Addr)
 	} else {
 		go ou.accumulateSensorData(sData)
@@ -762,7 +761,7 @@ func (ou *ObservationUnit) getData() {
 	}()
 
 	for {
-		time.Sleep(time.Second * 120)
+		time.Sleep(time.Second * 180)
 		if ou.LeaderElection.LeaderAddr == ou.Addr {
 			select {
 			case <-tickChan:
@@ -776,7 +775,7 @@ func (ou *ObservationUnit) getData() {
 
 				ou.SensorData.Data = tmp
 				ou.AccCount++
-				time.Sleep(time.Second * 40)
+				time.Sleep(time.Second * 60)
 				if ou.AccCount == 2 {
 					//Accumulated data x times, elect a new leader..
 					fmt.Printf("\n\n------------\n(%s): LEADER SENT DATA 2 TIMES!!!\n------------\n", ou.Addr)
