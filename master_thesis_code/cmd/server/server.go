@@ -281,12 +281,20 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 
 		go ou.notifyNeighboursGetData(sData)
 
-		if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
+		if len(ou.LeaderElection.LeaderPath) == 0 {
+			return
+		} else {
+			go ou.sendDataToLeader(sData)
+		}
+
+		/*if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
+			fmt.Printf("(%s): FIRST ELEMENT IN PATH IS LEADER. SEND DATA TO LEADER\n", ou.Addr)
 			go ou.sendDataToLeader(sData)
 		} else {
 			//Need to accumulate data with neighbours
+			fmt.Printf("(%s): FIRST ELEMENT IS NOT LEADER. ACCUMULATE DATA\n", ou.Addr)
 			go ou.accumulateSensorData(sData)
-		}
+		}*/
 	}
 }
 
