@@ -14,7 +14,7 @@ import (
 
 /*Experiments measures memory, cpu etc on the system*/
 func Experiments(pid int) {
-	tickChan := time.NewTicker(time.Millisecond * 5000).C
+	tickChan := time.NewTicker(time.Millisecond * 10000).C
 	folder := "./cmd/server/results"
 
 	path := folder + "/experience.csv"
