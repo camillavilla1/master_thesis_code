@@ -769,7 +769,7 @@ func (ou *ObservationUnit) getData() {
 	}()
 
 	for {
-		time.Sleep(time.Second * 180)
+		time.Sleep(time.Second * 140)
 		if ou.LeaderElection.LeaderAddr == ou.Addr {
 			select {
 			case <-tickChan:
@@ -798,7 +798,7 @@ func (ou *ObservationUnit) getData() {
 					fmt.Printf("(%s): Leader gossip new leader calculation \n", ou.Addr)
 					go ou.gossipNewLeaderCalculation()
 
-					time.Sleep(time.Second * 180)
+					time.Sleep(time.Second * 140)
 					fmt.Printf("(%s): Leader gossip new leader election \n", ou.Addr)
 					go ou.gossipLeaderElection()
 				}
