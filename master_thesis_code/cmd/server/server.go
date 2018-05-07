@@ -46,6 +46,7 @@ type ObservationUnit struct {
 	Ycor                float64  `json:"Ycor"`
 	Sends               int      `json:"-"`
 	SendsToLeader       int      `json:"-"`
+	ReceivedDataPkt     int      `json:"-"`
 	ClusterHeadCount    int      `json:"-"`
 	Bandwidth           int      `json:"-"`
 	CHpercentage        float64  `json:"-"`
@@ -120,7 +121,7 @@ func addCommonFlags(flagset *flag.FlagSet) {
 
 func startServer() {
 	/*ca 225 = 3.5 min, 450 = 7.5 min, 900 = 15 min*/
-	batteryStart = 1800
+	batteryStart = 900
 	secondInterval = 1
 	hostaddress := ouHost + ouPort
 	DataBaseStation.BSdatamap = make(map[uint32][]byte)
@@ -138,6 +139,7 @@ func startServer() {
 		Ycor:                estimateLocation(),
 		Sends:               0,
 		SendsToLeader:       0,
+		ReceivedDataPkt:     0,
 		ClusterHeadCount:    0,
 		Bandwidth:           bandwidth(),
 		CHpercentage:        0,
@@ -174,7 +176,8 @@ func startServer() {
 	http.HandleFunc("/gossipNewLeaderCalculation", ou.gossipNewLeaderCalculationHandler)
 
 	//go ou.checkBatteryStatus()
-	go Experiments(os.Getpid())
+	go ou.Experiments(os.Getpid())
+	//go ou.ChExperiments(os.Getpid())
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -344,6 +347,7 @@ func (ou *ObservationUnit) sendDataToLeaderHandler(w http.ResponseWriter, r *htt
 	defer r.Body.Close()
 
 	if ou.LeaderElection.LeaderAddr == ou.Addr {
+		ou.ReceivedDataPkt++
 		if len(DataBaseStation.BSdatamap) == 0 {
 			DataBaseStation.BSdatamap[sData.Fingerprint] = sData.Data
 		} else {
@@ -760,7 +764,7 @@ func (ou *ObservationUnit) getData() {
 	var count uint32
 	num = 0
 	count = 0
-	tickChan := time.NewTicker(time.Second * 180).C
+	tickChan := time.NewTicker(time.Second * 100).C
 
 	doneChan := make(chan bool)
 	go func() {
@@ -769,7 +773,7 @@ func (ou *ObservationUnit) getData() {
 	}()
 
 	for {
-		time.Sleep(time.Second * 140)
+		time.Sleep(time.Second * 40)
 		if ou.LeaderElection.LeaderAddr == ou.Addr {
 			select {
 			case <-tickChan:
@@ -785,6 +789,8 @@ func (ou *ObservationUnit) getData() {
 				ou.AccCount++
 				time.Sleep(time.Second * 60)
 				if ou.AccCount == 2 {
+					ou.ClusterHeadCount++
+					//go ChExperiments(os.Getpid(), ou.ClusterHeadCount, ou.ReceivedDataPkt)
 					//Accumulated data x times, elect a new leader..
 					fmt.Printf("\n\n------------\n(%s): LEADER SENT DATA 2 TIMES!!!\n------------\n", ou.Addr)
 
@@ -794,11 +800,11 @@ func (ou *ObservationUnit) getData() {
 					ou.LeaderCalculation.ID = ou.LeaderCalculation.ID + count
 					ou.AccCount = 0
 
-					time.Sleep(time.Second * 80)
+					time.Sleep(time.Second * 60)
 					fmt.Printf("(%s): Leader gossip new leader calculation \n", ou.Addr)
 					go ou.gossipNewLeaderCalculation()
 
-					time.Sleep(time.Second * 140)
+					time.Sleep(time.Second * 100)
 					fmt.Printf("(%s): Leader gossip new leader election \n", ou.Addr)
 					go ou.gossipLeaderElection()
 				}
@@ -879,7 +885,7 @@ func (ou *ObservationUnit) batteryConsumption() {
 		select {
 		case <-tickChan:
 			if ou.LeaderElection.LeaderAddr == ou.Addr {
-				ou.BatteryTime -= (secondInterval * 2)
+				ou.BatteryTime -= (secondInterval * 4)
 			} else {
 				ou.BatteryTime -= secondInterval
 			}

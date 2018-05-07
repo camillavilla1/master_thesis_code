@@ -13,11 +13,11 @@ import (
 )
 
 /*Experiments measures memory, cpu etc on the system*/
-func Experiments(pid int) {
-	tickChan := time.NewTicker(time.Millisecond * 10000).C
+func (ou *ObservationUnit) Experiments(pid int) {
+	tickChan := time.NewTicker(time.Millisecond * 500).C
 	folder := "./cmd/server/results"
 
-	path := folder + "/experience.csv"
+	path := folder + "/experiments.csv"
 
 	infoSlice := []string{}
 
@@ -88,17 +88,22 @@ func Experiments(pid int) {
 			infoSlice = append(infoSlice, strconv.Itoa(len(connections)))
 			//NET END
 
-			//infoSlice = append(infoSlice, strconv.Itoa(sends))
-			//infoSlice = append(infoSlice, strconv.Itoa(sendsToLeader))
+			infoSlice = append(infoSlice, strconv.Itoa(ou.Sends))
+			infoSlice = append(infoSlice, strconv.Itoa(ou.SendsToLeader))
 
-			appendFile(path, writer, infoSlice)
+			infoSlice = append(infoSlice, strconv.Itoa(ou.ClusterHeadCount))
+
+			infoSlice = append(infoSlice, strconv.Itoa(ou.ReceivedDataPkt))
+
+			AppendFile(path, writer, infoSlice)
 			infoSlice = []string{}
 
 		}
 	}
 }
 
-func appendFile(path string, writer *csv.Writer, slice []string) {
+/*AppendFile appends to a file*/
+func AppendFile(path string, writer *csv.Writer, slice []string) {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
 	ErrorMsg("Append to log: ", err)
 	defer f.Close()
