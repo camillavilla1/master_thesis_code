@@ -177,6 +177,7 @@ func startServer() {
 
 	//go ou.checkBatteryStatus()
 	go ou.Experiments(os.Getpid())
+	//go FixEverything()
 	//go ou.ChExperiments(os.Getpid())
 
 	go ou.batteryConsumption()
