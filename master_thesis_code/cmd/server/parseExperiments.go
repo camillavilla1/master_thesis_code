@@ -8,13 +8,14 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
-func readContentOfFolder3(index int, limit int) []string {
+func readContentOfExperiments(index int, limit int) []string {
 	var rows []string
 
 	folder := "./cmd/server/results"
-	path := folder + "/experiments.csv"
+	path := folder + "/experiments.log"
 
 	var line string
 
@@ -27,12 +28,12 @@ func readContentOfFolder3(index int, limit int) []string {
 	var lmt = 0
 	for scanner.Scan() {
 		// Skip first line
-		if lmt == 0 {
-			lmt++
-			continue
-		}
+		//if lmt == 0 {
+		//	lmt++
+		//	continue
+		//	}
 		readLine := strings.Split(scanner.Text(), "\t")
-		fmt.Printf("(%d - %d) - %v\n", index, len(readLine), readLine)
+		//fmt.Printf("(%d - %d) - %v\n", index, len(readLine), readLine)
 
 		line += fmt.Sprintf("%s\t", readLine[index])
 		//line = append(line, readLine[index])
@@ -50,14 +51,14 @@ func readContentOfFolder3(index int, limit int) []string {
 	line += fmt.Sprintf("\n")
 	// Append to the rows
 	rows = append(rows, line)
-	line = ""
+	//line = ""
 	//}
 	return rows
 }
 
 /*ReadMemory reads memory values*/
 func readMemory3() {
-
+	splitted := []string{}
 	folder := "./cmd/server/results/result"
 	path := folder + "/mem_result.log"
 
@@ -69,20 +70,36 @@ func readMemory3() {
 	writer := csv.NewWriter(f)
 	writer.Comma = '\t'
 
-	headerTime := readContentOfFolder3(0, 10)
+	headerTime := readContentOfExperiments(0, 10)
 	//rows := readContentOfFolder(2, 10)
-	//fmt.Printf("rows: %+v\n", rows)
-	//fmt.Printf("headerTime: %+v", headerTime)
-	//fmt.Printf("headerTime: %s\n", reflect.TypeOf(headerTime))
 
+	//Gets list of 1, need to split on tab..
 	for _, v := range headerTime {
-		splitted := strings.Split(v, "\t")
-		fmt.Printf("splitted: %s", splitted)
-		memSlice = append(memSlice, v)
+		splitted = strings.Split(v, "\t")
 	}
 
-	//memSlice = append(memSlice[:1], memSlice[1:]...)
+	for _, val := range splitted {
+		//fmt.Printf("SPLITTED V= %s\n", val)
 
+		if !ListContains(memSlice, "Time/Pid") {
+			memSlice = append(memSlice, "Time/Pid")
+			//memSlice = append([]string{"Time/Pid"}, memSlice...)
+		}
+
+		if !ListContains(memSlice, val) {
+			memSlice = append(memSlice, val)
+		}
+	}
+
+	//remove last elemet since its ""..
+	if len(memSlice) > 0 {
+		memSlice = memSlice[:len(memSlice)-1]
+	}
+
+	/*for _, val := range memSlice {
+		fmt.Printf("MMMELSIcE V= %s\n", val)
+	}
+	*/
 	AppendFile(path, writer, memSlice)
 }
 
@@ -93,10 +110,12 @@ func errMsg(s string, err error) {
 	}
 }
 
-/*FixEverything etc*/
-func FixEverything() {
+/*ConvertExperiments etc*/
+func (ou *ObservationUnit) ConvertExperiments() {
+	time.Sleep(time.Second * 5)
 	wg = sync.WaitGroup{}
 	wg.Add(1)
 	defer wg.Done()
 	readMemory3()
+
 }

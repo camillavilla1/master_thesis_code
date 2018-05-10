@@ -17,7 +17,7 @@ func (ou *ObservationUnit) Experiments(pid int) {
 	tickChan := time.NewTicker(time.Millisecond * 500).C
 	folder := "./cmd/server/results"
 
-	path := folder + "/experiments.csv"
+	path := folder + "/experiments.log"
 
 	infoSlice := []string{}
 

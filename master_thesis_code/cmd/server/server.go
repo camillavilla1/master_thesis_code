@@ -177,8 +177,9 @@ func startServer() {
 
 	//go ou.checkBatteryStatus()
 	go ou.Experiments(os.Getpid())
-	//go FixEverything()
-	//go ou.ChExperiments(os.Getpid())
+	//go ou.Experiments2(os.Getpid())
+	//go ReadCsv()
+	//go ou.ConvertExperiments()
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
@@ -257,7 +258,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	if !listContains(ou.ReachableNeighbours, newNeighbour) {
+	if !ListContains(ou.ReachableNeighbours, newNeighbour) {
 		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
 	}
 
@@ -378,7 +379,7 @@ func (ou *ObservationUnit) connectingOkHandler(w http.ResponseWriter, r *http.Re
 	io.Copy(ioutil.Discard, r.Body)
 	defer r.Body.Close()
 
-	if !listContains(ou.ReachableNeighbours, newNeighbour) {
+	if !ListContains(ou.ReachableNeighbours, newNeighbour) {
 		ou.ReachableNeighbours = append(ou.ReachableNeighbours, newNeighbour)
 	}
 }
@@ -604,7 +605,7 @@ func (ou *ObservationUnit) gossipLeaderElection() {
 		url := fmt.Sprintf("http://%s/gossipLeaderElection", addr)
 		//fmt.Printf("\n(%s): Gossip new leader to url: %s \n", ou.Addr, url)
 
-		if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+		if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 			ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 		}
 
@@ -628,7 +629,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		//Update (randnum), id ,addr, path!!
 		ou.LeaderElection.LeaderAddr = ou.Addr
 		ou.LeaderElection.ID = ou.ID
-		if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+		if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 			ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 		}
 
@@ -641,7 +642,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		//If the random number generated is higher than we already registered
 		if ou.LeaderElection.Number < recLeaderData.Number {
 			ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
-			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+			if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 			}
 			//Update randnum!!!
@@ -665,7 +666,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		if recLeaderData.Number > ou.LeaderElection.Number {
 			//Update randnum, id, addr, path!!!
 			ou.LeaderElection = recLeaderData
-			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+			if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 			}
 
@@ -679,7 +680,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 				ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
 				//append self
-				if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+				if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 					ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 				}
 
@@ -691,7 +692,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		} else {
 			//Different leader, lower rand-number..
 			//insert self to path..
-			if !listContains(ou.LeaderElection.LeaderPath, ou.Addr) {
+			if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 			}
 
@@ -942,8 +943,8 @@ func printSlice(s []string) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
 }
 
-//Check if a value is in a list/slice and return true or false
-func listContains(s []string, e string) bool {
+//ListContains check if a value is in a list/slice and return true or false
+func ListContains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
 			return true
