@@ -68,7 +68,7 @@ func ReadCsv2() {
 	numSendsChMap := make(map[string][]string)
 	chCountMap := make(map[string][]string)
 
-	file, err := os.Open("experiments3.log")
+	file, err := os.Open("experiments.log")
 	//file, err := os.Open("./cmd/server/results/experiments2.log")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -112,9 +112,9 @@ func ReadCsv2() {
 		chCountMap[record[1]] = append(chCountMap[record[1]], record[8])
 	}
 
-	for k, v := range memMap {
+	/*for k, v := range memMap {
 		fmt.Printf("KEY: %s, Value: %s\n", k, v)
-	}
+	}*/
 
 	memSlice := converteMap(memMap)
 	cpuSlice := converteMap(cpuMap)
