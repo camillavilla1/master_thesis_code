@@ -52,20 +52,23 @@ func ListContains2(s []string, e string) bool {
 
 /*ReadCsv2 reads csv*/
 func ReadCsv2() {
-	//Time	Pid	Memory percent	CPU percent	Process running	Process connections	Sends	Sends to leader	Cluster Head count	Received data pkt
+	//Time	Pid	Memorypercent	CPUpercent	ProcessRunning	ProcessConnections	Sends	Sendstoleader	ClusterHeadcount Received data pkt
 
 	fmt.Printf("READING CSV/LOG..\n")
 
 	record := []string{}
-	timeSlice := []string{}
 	pidSlice := []string{}
-	//memSlice := []string{}
 
-	//headerSlice := []string{}
+	headerTimeSlice := []string{}
 
 	memMap := make(map[string][]string)
+	cpuMap := make(map[string][]string)
+	numConnMap := make(map[string][]string)
+	numSendsMap := make(map[string][]string)
+	numSendsChMap := make(map[string][]string)
+	chCountMap := make(map[string][]string)
 
-	file, err := os.Open("experiments2.log")
+	file, err := os.Open("experiments3.log")
 	//file, err := os.Open("./cmd/server/results/experiments2.log")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -87,31 +90,26 @@ func ReadCsv2() {
 			return
 		}
 		// record is an array of string so is directly printable
-		fmt.Println("Record", lineCount, "is", record, "and has", len(record), "fields")
-		// and we can iterate on top of that
+		//fmt.Println("Record", lineCount, "is", record, "and has", len(record), "fields")
 
-		/*for i := 0; i < len(record); i++ {
-			fmt.Println(" ", record[i])
+		if !ListContains2(headerTimeSlice, record[0]) {
+			headerTimeSlice = append(headerTimeSlice, record[0])
 		}
-		fmt.Println()*/
-
-		if !ListContains2(timeSlice, record[0]) {
-			timeSlice = append(timeSlice, record[0])
-		}
-
-		//headerSlice = timeSlice
-
-		//	fmt.Printf("HEADERSLICE: %+v\n", headerSlice)
 
 		//pidSlice = append(pidSlice, record[1])
 		if !ListContains2(pidSlice, record[1]) {
 			pidSlice = append(pidSlice, record[1])
 		}
+
 		lineCount++
 
-		fmt.Printf("MemMap %+v\n", memMap)
-
 		memMap[record[1]] = append(memMap[record[1]], record[2])
+		cpuMap[record[1]] = append(cpuMap[record[1]], record[3])
+		numConnMap[record[1]] = append(numConnMap[record[1]], record[5])
+
+		numSendsMap[record[1]] = append(numSendsMap[record[1]], record[6])
+		numSendsChMap[record[1]] = append(numSendsChMap[record[1]], record[7])
+		chCountMap[record[1]] = append(chCountMap[record[1]], record[8])
 	}
 
 	for k, v := range memMap {
@@ -119,17 +117,38 @@ func ReadCsv2() {
 	}
 
 	memSlice := converteMap(memMap)
+	cpuSlice := converteMap(cpuMap)
+	numConnSlice := converteMap(numConnMap)
+	numSendsSlice := converteMap(numSendsMap)
+	numSendsChSlice := converteMap(numSendsChMap)
+	chCountSlice := converteMap(chCountMap)
 
-	fmt.Printf("MemSlice: %+v\n", memSlice)
+	//fmt.Printf("MemSlice: %+v\n", memSlice)
+
+	//getDataFromFile(memMap, pidSlice, record, 1, 2)
 
 	measureMemory(memSlice)
-
-	//	fmt.Printf("ROWSLICE: %s\n", rowSlice)
+	measureCPU(cpuSlice)
+	measureNumConn(numConnSlice)
+	measureNumSends(numSendsSlice)
+	measureNumSendsCh(numSendsChSlice)
+	measureChCount(chCountSlice)
 }
 
 func main() {
 	ReadCsv2()
 }
+
+/*func getDataFromFile(m map[string][]string, pidSlice []string, record []string, sliceIndex int, recIndex int) []string {
+	retSlice := []string{}
+	if !ListContains2(pidSlice, record[recIndex]) {
+		retSlice = append(retSlice, record[recIndex])
+	}
+
+	m[record[sliceIndex]] = append(m[record[sliceIndex]], record[recIndex])
+
+	return retSlice
+}*/
 
 func converteMap(m map[string][]string) []string {
 	pairs := []string{}
@@ -147,10 +166,31 @@ func converteMap(m map[string][]string) []string {
 }
 
 func measureMemory(s []string) {
-	path := "experiments3new.log"
-	//f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-	//ErrMsg("Open file log: ", err)
-	//defer f.Close()
+	path := "memResults.log"
+	AppendFile3(path, s)
+}
 
+func measureCPU(s []string) {
+	path := "CPUResults.log"
+	AppendFile3(path, s)
+}
+
+func measureNumConn(s []string) {
+	path := "numConnResults.log"
+	AppendFile3(path, s)
+}
+
+func measureNumSends(s []string) {
+	path := "numSendsResults.log"
+	AppendFile3(path, s)
+}
+
+func measureNumSendsCh(s []string) {
+	path := "numSendsChResults.log"
+	AppendFile3(path, s)
+}
+
+func measureChCount(s []string) {
+	path := "chCountResults.log"
 	AppendFile3(path, s)
 }
