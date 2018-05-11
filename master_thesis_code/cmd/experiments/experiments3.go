@@ -16,8 +16,8 @@ func ErrMsg(s string, err error) {
 	}
 }
 
-/*AppendFile3 appends to a file*/
-func AppendFile3(path string, slice []string) {
+/*AppendToFile appends to a file*/
+func AppendToFile(path string, slice []string) {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
 	ErrMsg("Append to log: ", err)
 	defer f.Close()
@@ -68,7 +68,7 @@ func ReadCsv2() {
 	numSendsChMap := make(map[string][]string)
 	chCountMap := make(map[string][]string)
 
-	file, err := os.Open("experiments.log")
+	file, err := os.Open("experiments_short.log")
 	//file, err := os.Open("./cmd/server/results/experiments2.log")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -96,7 +96,6 @@ func ReadCsv2() {
 			headerTimeSlice = append(headerTimeSlice, record[0])
 		}
 
-		//pidSlice = append(pidSlice, record[1])
 		if !ListContains2(pidSlice, record[1]) {
 			pidSlice = append(pidSlice, record[1])
 		}
@@ -125,30 +124,36 @@ func ReadCsv2() {
 
 	//fmt.Printf("MemSlice: %+v\n", memSlice)
 
+	retAverage := average(cpuSlice)
+	fmt.Printf("AVERAGE: %f\n", retAverage)
+
 	//getDataFromFile(memMap, pidSlice, record, 1, 2)
 
-	measureMemory(memSlice)
-	measureCPU(cpuSlice)
-	measureNumConn(numConnSlice)
-	measureNumSends(numSendsSlice)
-	measureNumSendsCh(numSendsChSlice)
-	measureChCount(chCountSlice)
+	AppendToFile("memResults.log", memSlice)
+	AppendToFile("CPUResults.log", cpuSlice)
+	AppendToFile("numConnResults.log", numConnSlice)
+	AppendToFile("numSendsResults.log", numSendsSlice)
+	AppendToFile("numSendsChResults.log", numSendsChSlice)
+	AppendToFile("chCountResults.log", chCountSlice)
 }
 
 func main() {
 	ReadCsv2()
 }
 
-/*func getDataFromFile(m map[string][]string, pidSlice []string, record []string, sliceIndex int, recIndex int) []string {
-	retSlice := []string{}
-	if !ListContains2(pidSlice, record[recIndex]) {
-		retSlice = append(retSlice, record[recIndex])
+func average(xs []string) float64 {
+	total := 0.0
+	var val1 float64
+	fmt.Printf("XS/CPUSlice: %+v\n", xs)
+	for _, v := range xs {
+		for _, val := range v {
+			val1 = float64(val)
+		}
+
+		total += val1
 	}
-
-	m[record[sliceIndex]] = append(m[record[sliceIndex]], record[recIndex])
-
-	return retSlice
-}*/
+	return total / float64(len(xs))
+}
 
 func converteMap(m map[string][]string) []string {
 	pairs := []string{}
@@ -163,34 +168,4 @@ func converteMap(m map[string][]string) []string {
 	}
 
 	return pairs
-}
-
-func measureMemory(s []string) {
-	path := "memResults.log"
-	AppendFile3(path, s)
-}
-
-func measureCPU(s []string) {
-	path := "CPUResults.log"
-	AppendFile3(path, s)
-}
-
-func measureNumConn(s []string) {
-	path := "numConnResults.log"
-	AppendFile3(path, s)
-}
-
-func measureNumSends(s []string) {
-	path := "numSendsResults.log"
-	AppendFile3(path, s)
-}
-
-func measureNumSendsCh(s []string) {
-	path := "numSendsChResults.log"
-	AppendFile3(path, s)
-}
-
-func measureChCount(s []string) {
-	path := "chCountResults.log"
-	AppendFile3(path, s)
 }
