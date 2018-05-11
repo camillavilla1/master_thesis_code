@@ -68,7 +68,7 @@ func ReadCsv2() {
 	numSendsChMap := make(map[string][]string)
 	chCountMap := make(map[string][]string)
 
-	file, err := os.Open("experiments_short.log")
+	file, err := os.Open("experiments.log")
 	//file, err := os.Open("./cmd/server/results/experiments2.log")
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -124,8 +124,8 @@ func ReadCsv2() {
 
 	//fmt.Printf("MemSlice: %+v\n", memSlice)
 
-	retAverage := average(cpuSlice)
-	fmt.Printf("AVERAGE: %f\n", retAverage)
+	//retAverage := average(cpuSlice)
+	//fmt.Printf("AVERAGE: %f\n", retAverage)
 
 	//getDataFromFile(memMap, pidSlice, record, 1, 2)
 
