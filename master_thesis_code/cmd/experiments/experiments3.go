@@ -67,6 +67,7 @@ func ReadCsv2() {
 	numSendsMap := make(map[string][]string)
 	numSendsChMap := make(map[string][]string)
 	chCountMap := make(map[string][]string)
+	recPktMap := make(map[string][]string)
 
 	file, err := os.Open("experiments.log")
 	//file, err := os.Open("./cmd/server/results/experiments2.log")
@@ -109,11 +110,8 @@ func ReadCsv2() {
 		numSendsMap[record[1]] = append(numSendsMap[record[1]], record[6])
 		numSendsChMap[record[1]] = append(numSendsChMap[record[1]], record[7])
 		chCountMap[record[1]] = append(chCountMap[record[1]], record[8])
+		recPktMap[record[1]] = append(recPktMap[record[1]], record[9])
 	}
-
-	/*for k, v := range memMap {
-		fmt.Printf("KEY: %s, Value: %s\n", k, v)
-	}*/
 
 	memSlice := converteMap(memMap)
 	cpuSlice := converteMap(cpuMap)
@@ -121,13 +119,7 @@ func ReadCsv2() {
 	numSendsSlice := converteMap(numSendsMap)
 	numSendsChSlice := converteMap(numSendsChMap)
 	chCountSlice := converteMap(chCountMap)
-
-	//fmt.Printf("MemSlice: %+v\n", memSlice)
-
-	//retAverage := average(cpuSlice)
-	//fmt.Printf("AVERAGE: %f\n", retAverage)
-
-	//getDataFromFile(memMap, pidSlice, record, 1, 2)
+	recPktSlice := converteMap(recPktMap)
 
 	AppendToFile("memResults.log", memSlice)
 	AppendToFile("CPUResults.log", cpuSlice)
@@ -135,24 +127,11 @@ func ReadCsv2() {
 	AppendToFile("numSendsResults.log", numSendsSlice)
 	AppendToFile("numSendsChResults.log", numSendsChSlice)
 	AppendToFile("chCountResults.log", chCountSlice)
+	AppendToFile("recPktCount.log", recPktSlice)
 }
 
 func main() {
 	ReadCsv2()
-}
-
-func average(xs []string) float64 {
-	total := 0.0
-	var val1 float64
-	fmt.Printf("XS/CPUSlice: %+v\n", xs)
-	for _, v := range xs {
-		for _, val := range v {
-			val1 = float64(val)
-		}
-
-		total += val1
-	}
-	return total / float64(len(xs))
 }
 
 func converteMap(m map[string][]string) []string {
