@@ -766,7 +766,7 @@ func (ou *ObservationUnit) getData() {
 	var count uint32
 	num = 0
 	count = 0
-	randAccCount := randomInt(1, 6)
+	//randAccCount := randomInt(1, 6)
 	tickChan := time.NewTicker(time.Second * 100).C
 
 	doneChan := make(chan bool)
@@ -791,8 +791,8 @@ func (ou *ObservationUnit) getData() {
 				ou.SensorData.Data = tmp
 				ou.AccCount++
 				time.Sleep(time.Second * 60)
-				if ou.AccCount == randAccCount {
-					//if ou.AccCount == 4 {
+				//if ou.AccCount == randAccCount {
+				if ou.AccCount == 2 {
 					ou.ClusterHeadCount++
 					//go ChExperiments(os.Getpid(), ou.ClusterHeadCount, ou.ReceivedDataPkt)
 					//Accumulated data x times, elect a new leader..
