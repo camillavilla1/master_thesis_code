@@ -792,7 +792,7 @@ func (ou *ObservationUnit) getData() {
 				ou.AccCount++
 				time.Sleep(time.Second * 60)
 				//if ou.AccCount == randAccCount {
-				if ou.AccCount == 2 {
+				if ou.AccCount == 6 {
 					ou.ClusterHeadCount++
 					//go ChExperiments(os.Getpid(), ou.ClusterHeadCount, ou.ReceivedDataPkt)
 					//Accumulated data x times, elect a new leader..
