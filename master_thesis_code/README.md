@@ -12,6 +12,7 @@ The purpose is to fetch and accumulate data observed by observation units for fu
 ### Installing
 
 Download and install Golang - https://golang.org/doc/install
+
 Get and install gopsutil
 
 ```
