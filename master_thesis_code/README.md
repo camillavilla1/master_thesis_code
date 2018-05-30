@@ -9,14 +9,6 @@ This project will develop an approach to:
 
 The purpose is to fetch and accumulate data observed by observation units for further use.
 
-### Prerequisites
-
-What things you need to install the software and how to install them
-
-```
-Give examples
-```
-
 ### Installing
 
 A step by step series of examples that tell you have to get a development env running
@@ -24,7 +16,8 @@ A step by step series of examples that tell you have to get a development env ru
 Say what the step will be
 
 ```
-Give the example
+go get github.com/shirou/gopsutil/...
+
 ```
 
 
