@@ -177,6 +177,7 @@ func findNearestneighbours(ou ObservationUnit) {
 	}
 }
 
+/*tellOuNoReachableNeighbours: tell node that it has no reachable neighbours*/
 func tellOuNoReachableNeighbours(ou ObservationUnit) {
 	url := fmt.Sprintf("http://%s/noReachableNeighbours", ou.Addr)
 	fmt.Printf("Sending no reachable neighbours to url: %s\n", url)

@@ -34,7 +34,7 @@ var wg sync.WaitGroup
 
 var biggestAddress string
 
-/*ObservationUnit is a struct of a OU*/
+/*ObservationUnit is a struct of a OU/node*/
 type ObservationUnit struct {
 	Addr                string   `json:"Addr"`
 	ID                  uint32   `json:"Id"`
@@ -102,9 +102,6 @@ func main() {
 		wg.Add(1)
 		//ret := setMaxProcs()
 		//setMaxProcs()
-		//fmt.Printf("\n\n----------------------------------------------------------------------------\n")
-		//fmt.Println("Processes:", ret)
-		//time.Sleep(time.Second * 1)
 		go startServer()
 		wg.Wait()
 
@@ -177,17 +174,12 @@ func startServer() {
 
 	//go ou.checkBatteryStatus()
 	go ou.Experiments(os.Getpid())
-	//go ou.Experiments2(os.Getpid())
-	//go ReadCsv()
-	//go ou.ConvertExperiments()
 
 	go ou.batteryConsumption()
 	go ou.tellSimulationUnit()
 	ou.LeaderElection.Number = randomFloat()
 
 	go ou.measureSensorData()
-
-	//remove go
 	go ou.getData()
 
 	err := http.ListenAndServe(ouPort, nil)
@@ -291,15 +283,6 @@ func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter,
 		} else {
 			go ou.sendDataToLeader(sData)
 		}
-
-		/*if ou.LeaderElection.LeaderPath[0] == ou.LeaderElection.LeaderAddr {
-			fmt.Printf("(%s): FIRST ELEMENT IN PATH IS LEADER. SEND DATA TO LEADER\n", ou.Addr)
-			go ou.sendDataToLeader(sData)
-		} else {
-			//Need to accumulate data with neighbours
-			fmt.Printf("(%s): FIRST ELEMENT IS NOT LEADER. ACCUMULATE DATA\n", ou.Addr)
-			go ou.accumulateSensorData(sData)
-		}*/
 	}
 }
 
@@ -576,7 +559,7 @@ func (ou *ObservationUnit) tellSimulationUnit() {
 	io.Copy(os.Stdout, res.Body)
 }
 
-/*Tell SOU that you're dead */
+/*Tell simulation that you're dead */
 func (ou *ObservationUnit) tellSimulationUnitDead() {
 	url := fmt.Sprintf("http://localhost:%s/removeReachableOu", SimPort)
 	//fmt.Printf("(%s): Sending 'I'm dead..' to url: %s \n", ou.Addr, url)
@@ -645,7 +628,6 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
 			}
-			//Update randnum!!!
 			ou.LeaderElection.Number = recLeaderData.Number
 			ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 			go ou.gossipLeaderElection()
@@ -664,7 +646,6 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 		//Different msg
 		//Received rand-num is higher than the one we have.. Update leader..
 		if recLeaderData.Number > ou.LeaderElection.Number {
-			//Update randnum, id, addr, path!!!
 			ou.LeaderElection = recLeaderData
 			if !ListContains(ou.LeaderElection.LeaderPath, ou.Addr) {
 				ou.LeaderElection.LeaderPath = append(ou.LeaderElection.LeaderPath, ou.Addr)
@@ -675,7 +656,6 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 			//Same random number, but different leader
 			//Check if shorter path
 			if len(ou.LeaderElection.LeaderPath) > len(recLeaderData.LeaderPath) {
-				//Update id, addr, path!!!
 				ou.LeaderElection.ID = recLeaderData.ID
 				ou.LeaderElection.LeaderAddr = recLeaderData.LeaderAddr
 				ou.LeaderElection.LeaderPath = recLeaderData.LeaderPath
@@ -766,7 +746,7 @@ func (ou *ObservationUnit) getData() {
 	var count uint32
 	num = 0
 	count = 0
-	//randAccCount := randomInt(1, 6)
+	randAccCount := randomInt(1, 6)
 	tickChan := time.NewTicker(time.Second * 100).C
 
 	doneChan := make(chan bool)
@@ -791,13 +771,11 @@ func (ou *ObservationUnit) getData() {
 				ou.SensorData.Data = tmp
 				ou.AccCount++
 				time.Sleep(time.Second * 60)
-				//if ou.AccCount == randAccCount {
-				if ou.AccCount == 6 {
+				if ou.AccCount == randAccCount {
+					//if ou.AccCount == 6 {
 					ou.ClusterHeadCount++
-					//go ChExperiments(os.Getpid(), ou.ClusterHeadCount, ou.ReceivedDataPkt)
-					//Accumulated data x times, elect a new leader..
-					fmt.Printf("\n\n------------\n(%s): LEADER SENT DATA 2 TIMES!!!\n------------\n", ou.Addr)
 
+					//Accumulated data x times, elect a new leader..
 					ou.LeaderElection.Number = randomFloat()
 					ou.LeaderCalculation.ID = hashAddress(ou.Addr)
 					count++
@@ -805,11 +783,11 @@ func (ou *ObservationUnit) getData() {
 					ou.AccCount = 0
 
 					time.Sleep(time.Second * 60)
-					fmt.Printf("(%s): Leader gossip new leader calculation \n", ou.Addr)
+					//fmt.Printf("(%s): Leader gossip new leader calculation \n", ou.Addr)
 					go ou.gossipNewLeaderCalculation()
 
 					time.Sleep(time.Second * 100)
-					fmt.Printf("(%s): Leader gossip new leader election \n", ou.Addr)
+					//fmt.Printf("(%s): Leader gossip new leader election \n", ou.Addr)
 					go ou.gossipLeaderElection()
 				}
 			case <-doneChan:
@@ -856,9 +834,6 @@ func hashByte(data []byte) uint32 {
 func estimateLocation() float64 {
 	rand.Seed(time.Now().UTC().UnixNano())
 	num := (rand.Float64() * 495) + 5
-	//num := (rand.Float64() * 200) + 5
-	//num := (rand.Float64() * 50) + 5
-	//num := (rand.Float64() * 350) + 5
 	return num
 }
 

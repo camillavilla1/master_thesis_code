@@ -12,7 +12,7 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
-/*Experiments measures memory, cpu etc on the system*/
+/*Experiments measures memory, cpu etc on the system every 500 millisecond*/
 func (ou *ObservationUnit) Experiments(pid int) {
 	tickChan := time.NewTicker(time.Millisecond * 500).C
 	folder := "./cmd/server/results"
@@ -50,14 +50,13 @@ func (ou *ObservationUnit) Experiments(pid int) {
 			mem, _ := mem.VirtualMemory()
 			//fmt.Printf("Total: %v, Free:%v, UsedPercent:%f%%\n", mem.Total, mem.Free, mem.UsedPercent)
 
-			memUsedPercentage2 := toFixed(mem.UsedPercent, 3)
-			memUsedPercentage := strconv.FormatFloat(memUsedPercentage2, 'g', -1, 64)
+			memUsedPercentage := toFixed(mem.UsedPercent, 3)
+			newMemUsedPercentage := strconv.FormatFloat(memUsedPercentage, 'g', -1, 64)
 
 			//totMem := strconv.FormatUint(mem.Total, 10)
-
 			//memUsed := strconv.FormatUint(mem.Used, 10)
 			//fmt.Fprintln(w, "%f\t.", mem.UsedPercent)
-			infoSlice = append(infoSlice, memUsedPercentage)
+			infoSlice = append(infoSlice, newMemUsedPercentage)
 			//infoSlice = append(infoSlice, totMem)
 			//infoSlice = append(infoSlice, memUsed)
 			//MEMORY END
@@ -71,10 +70,7 @@ func (ou *ObservationUnit) Experiments(pid int) {
 			//CPU END
 
 			//PROCEESS!!!
-			//Number of processes running?
 			procConnections, _ := process.Processes()
-			//func (*Process) CPUPercent
-			//func (*Process) MemoryPercent
 
 			numProc := strconv.Itoa(len(procConnections))
 			infoSlice = append(infoSlice, numProc)
@@ -83,8 +79,6 @@ func (ou *ObservationUnit) Experiments(pid int) {
 			//NET!!!
 			connections, err := net.ConnectionsPid("all", int32(pid))
 			ErrorMsg("con: ", err)
-			//fmt.Printf("\nNET Connections: %v\n", connections)
-			//fmt.Printf("LEN CONN: %d\n", len(connections))
 			infoSlice = append(infoSlice, strconv.Itoa(len(connections)))
 			//NET END
 
