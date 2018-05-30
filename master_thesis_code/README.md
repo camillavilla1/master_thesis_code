@@ -11,9 +11,8 @@ The purpose is to fetch and accumulate data observed by observation units for fu
 
 ### Installing
 
-A step by step series of examples that tell you have to get a development env running
-
-Say what the step will be
+Download and install Golang - https://golang.org/doc/install
+Get and install gopsutil
 
 ```
 go get github.com/shirou/gopsutil/...
@@ -55,6 +54,7 @@ go run run_all.go 3
 ## Built With
 
 * [Golang](https://golang.org/) - The program language
+* [Gopsutil](https://github.com/shirou/gopsutil) - gopsutil: psutil for golang
 
 
 ## Authors
