@@ -56,7 +56,7 @@ type ObservationUnit struct {
 	LeaderCalculation   `json:"-"`
 }
 
-/*SensorData is data from "sensors" on the OU*/
+/*SensorData is data from simulated sensors on the OU*/
 type SensorData struct {
 	ID          uint32
 	Fingerprint uint32
@@ -66,7 +66,7 @@ type SensorData struct {
 	Accumulated bool
 }
 
-/*DataBaseStation is data sent to/gathered from the BS*/
+/*DataBaseStation is data gathered to sent to the BS*/
 var DataBaseStation struct {
 	sync.Mutex
 	BSdatamap map[uint32][]byte
@@ -172,7 +172,6 @@ func startServer() {
 	http.HandleFunc("/gossipLeaderElection", ou.gossipLeaderElectionHandler)
 	http.HandleFunc("/gossipNewLeaderCalculation", ou.gossipNewLeaderCalculationHandler)
 
-	//go ou.checkBatteryStatus()
 	go ou.Experiments(os.Getpid())
 
 	go ou.batteryConsumption()
@@ -258,7 +257,7 @@ func (ou *ObservationUnit) newNeighboursHandler(w http.ResponseWriter, r *http.R
 	go ou.tellContactingOuOk(newNeighbour)
 }
 
-/*Receive a msg from leader about sending (accumulated) data to leader. */
+/*Receive a msg from CH about sending (accumulated) data to leader. */
 func (ou *ObservationUnit) notifyNeighboursGetDataHandler(w http.ResponseWriter, r *http.Request) {
 	var sData SensorData
 
@@ -441,6 +440,7 @@ func (ou *ObservationUnit) contactNewNeighbour() {
 		}
 	}
 
+	//Wait unitl all reachable neighbours are contacted
 	if i == len(ou.ReachableNeighbours) {
 		time.Sleep(time.Millisecond * 8000)
 		go ou.leaderElection(ou.LeaderElection)
@@ -502,6 +502,7 @@ func (ou *ObservationUnit) notifyNeighboursGetData(sensorData SensorData) {
 func (ou *ObservationUnit) sendDataToLeader(sensorData SensorData) {
 	var lastElem string
 
+	//remove yourself from path if you are the last element
 	if len(ou.LeaderElection.LeaderPath) > 1 {
 		lastElem = ou.LeaderElection.LeaderPath[len(ou.LeaderElection.LeaderPath)-1]
 		if lastElem == ou.Addr {
@@ -682,7 +683,7 @@ func (ou *ObservationUnit) leaderElection(recLeaderData LeaderElection) {
 	}
 }
 
-/*Chose if node is the biggest..*/
+/*Chose if node is the biggest.. Not used*/
 func (ou *ObservationUnit) biggestID() bool {
 	var biggest uint32
 
@@ -722,7 +723,7 @@ func (ou *ObservationUnit) accumulateSensorData(sData SensorData) {
 	go ou.sendDataToLeader(ou.SensorData)
 }
 
-/*calculateLeaderThreshold algorithm for calculate if a node can be ch..*/
+/*calculateLeaderThreshold algorithm for calculate if a node can be ch.. Not used*/
 func (ou *ObservationUnit) calculateLeaderThreshold() {
 	time.Sleep(time.Second * 1)
 	fmt.Printf("(%s): Bandwidth: %d\n", ou.Addr, ou.Bandwidth)
@@ -957,7 +958,7 @@ func (ou *ObservationUnit) byteSensor() {
 }
 
 /*Return a random int describing which bandwidth-type for specific OU.
-Use this value to determine if OU can be leader*/
+Use this value to determine if OU can be leader. Not used*/
 func bandwidth() int {
 	bw := make(map[string]int)
 	bw["LoRa"] = 50
